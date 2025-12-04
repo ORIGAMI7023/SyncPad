@@ -19,8 +19,11 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        // 注册 HttpClient
-        builder.Services.AddHttpClient<IApiClient, ApiClient>();
+        // 配置 API 基础地址
+        builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://localhost:7167");
+        });
 
         // 注册服务
         builder.Services.AddSingleton<ITokenStorage, MauiTokenStorage>();

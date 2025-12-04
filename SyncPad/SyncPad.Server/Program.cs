@@ -77,9 +77,12 @@ builder.Services.AddCors(options =>
 // 配置 SignalR
 builder.Services.AddSignalR();
 
-// 配置控制器和 OpenAPI
+// 配置控制器
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+
+// 配置 Swagger/OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
@@ -93,12 +96,8 @@ using (var scope = app.Services.CreateScope())
 // 配置 HTTP 管道
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    // Swagger UI
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/openapi/v1.json", "SyncPad API");
-    });
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();

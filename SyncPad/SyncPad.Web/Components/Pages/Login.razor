@@ -9,34 +9,26 @@
 <div class="login-container">
     <div class="login-card">
         <h1>SyncPad</h1>
+        <p style="color: gray; font-size: 12px;">状态: @_status</p>
 
-        <EditForm Model="@_loginModel" OnValidSubmit="HandleLogin">
-            <div class="form-group">
-                <label for="username">用户名</label>
-                <input type="text" id="username" @bind="_loginModel.Username" placeholder="请输入用户名" />
-            </div>
+        <div class="form-group">
+            <label for="username">用户名</label>
+            <input type="text" id="username" @bind="Username" placeholder="请输入用户名" />
+        </div>
 
-            <div class="form-group">
-                <label for="password">密码</label>
-                <input type="password" id="password" @bind="_loginModel.Password" placeholder="请输入密码" />
-            </div>
+        <div class="form-group">
+            <label for="password">密码</label>
+            <input type="password" id="password" @bind="Password" placeholder="请输入密码" />
+        </div>
 
-            @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <div class="error-message">@_errorMessage</div>
-            }
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="error-message">@_errorMessage</div>
+        }
 
-            <button type="submit" disabled="@_isLoading">
-                @if (_isLoading)
-                {
-                    <span>登录中...</span>
-                }
-                else
-                {
-                    <span>登录</span>
-                }
-            </button>
-        </EditForm>
+        <button type="button" @onclick="HandleLoginClick" disabled="@_isLoading">
+            @(_isLoading ? "登录中..." : "登录")
+        </button>
     </div>
 </div>
 
@@ -118,59 +110,52 @@
 </style>
 
 @code {
-    private LoginModel _loginModel = new();
+    private string Username { get; set; } = "admin";
+    private string Password { get; set; } = "123456";
     private string _errorMessage = string.Empty;
+    private string _status = "就绪";
     private bool _isLoading = false;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private async Task HandleLoginClick()
     {
-        if (firstRender)
-        {
-            // 尝试恢复会话
-            if (await AuthManager.TryRestoreSessionAsync())
-            {
-                Navigation.NavigateTo("/pad");
-            }
-        }
-    }
+        _status = "点击了登录按钮";
 
-    private async Task HandleLogin()
-    {
-        if (string.IsNullOrWhiteSpace(_loginModel.Username) || string.IsNullOrWhiteSpace(_loginModel.Password))
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
         {
             _errorMessage = "请输入用户名和密码";
+            _status = "验证失败";
             return;
         }
 
         _isLoading = true;
         _errorMessage = string.Empty;
+        _status = "正在登录...";
 
         try
         {
-            var response = await AuthManager.LoginAsync(_loginModel.Username, _loginModel.Password);
+            var response = await AuthManager.LoginAsync(Username, Password);
+            _status = $"登录响应: Success={response.Success}";
 
             if (response.Success)
             {
+                _status = "登录成功，正在跳转...";
+                await Task.Delay(100);
                 Navigation.NavigateTo("/pad");
             }
             else
             {
                 _errorMessage = response.ErrorMessage ?? "登录失败";
+                _status = $"登录失败: {_errorMessage}";
             }
         }
         catch (Exception ex)
         {
             _errorMessage = $"登录出错: {ex.Message}";
+            _status = $"异常: {ex.Message}";
         }
         finally
         {
             _isLoading = false;
         }
-    }
-
-    private class LoginModel
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
     }
 }

@@ -7,8 +7,8 @@ public class LoginViewModel : BaseViewModel
 {
     private readonly IAuthManager _authManager;
 
-    private string _username = string.Empty;
-    private string _password = string.Empty;
+    private string _username = "admin";
+    private string _password = "123456";
     private string _errorMessage = string.Empty;
     private bool _isLoading;
 

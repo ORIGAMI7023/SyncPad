@@ -12,7 +12,7 @@ public class WebAuthManager : IAuthManager
     private readonly ITokenStorage _tokenStorage;
 
     // 服务器地址（Web 版本使用相对路径或配置的地址）
-    private string _baseUrl = "https://localhost:7001";
+    private string _baseUrl = "https://localhost:7167";
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);
     public string? Username { get; private set; }

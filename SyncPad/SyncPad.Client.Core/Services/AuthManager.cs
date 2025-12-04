@@ -11,7 +11,7 @@ public class AuthManager : IAuthManager
     private readonly ITokenStorage _tokenStorage;
 
     // 默认服务器地址（开发环境）
-    private string _baseUrl = "https://localhost:7001";
+    private string _baseUrl = "https://localhost:7167";
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);
     public string? Username { get; private set; }
