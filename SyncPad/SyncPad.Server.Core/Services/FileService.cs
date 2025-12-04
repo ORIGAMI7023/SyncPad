@@ -70,7 +70,7 @@ public class FileService : IFileService
         var hash = ComputeSha256Hash(fileBytes);
         var fileSize = fileBytes.Length;
 
-        // 检查内容是否已存在
+        // 检查内容是否已存在（包括已删除文件的内容，实现秒传）
         var fileContent = await _context.FileContents
             .FirstOrDefaultAsync(fc => fc.ContentHash == hash);
 
@@ -91,6 +91,17 @@ public class FileService : IFileService
                 LastAccessedAt = DateTime.UtcNow
             };
             _context.FileContents.Add(fileContent);
+        }
+        else
+        {
+            // 复用已有内容（秒传），验证物理文件存在
+            var filePath = GetFilePath(hash);
+            if (!File.Exists(filePath))
+            {
+                // 物理文件丢失，重新写入
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+                await File.WriteAllBytesAsync(filePath, fileBytes);
+            }
         }
 
         // 更新引用计数
@@ -135,17 +146,17 @@ public class FileService : IFileService
         };
     }
 
-    public async Task<(Stream? Stream, string? MimeType, string? FileName)> DownloadFileAsync(int userId, int fileId)
+    public async Task<(Stream? Stream, string? MimeType, string? FileName, long FileSize)> DownloadFileAsync(int userId, int fileId)
     {
         var fileItem = await _context.FileItems
             .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
 
         if (fileItem == null)
-            return (null, null, null);
+            return (null, null, null, 0);
 
         var filePath = GetFilePath(fileItem.ContentHash);
         if (!File.Exists(filePath))
-            return (null, null, null);
+            return (null, null, null, 0);
 
         // 更新最后访问时间
         var fileContent = await _context.FileContents
@@ -157,7 +168,7 @@ public class FileService : IFileService
         }
 
         var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return (stream, fileItem.MimeType, fileItem.FileName);
+        return (stream, fileItem.MimeType, fileItem.FileName, fileItem.FileSize);
     }
 
     public async Task<bool> DeleteFileAsync(int userId, int fileId)
@@ -192,9 +203,9 @@ public class FileService : IFileService
     {
         var now = DateTime.UtcNow;
 
-        // 清理过期的 FileItem（已过期或已删除超过一定时间）
+        // 清理过期的 FileItem（已过期或已删除超过 7 天，便于去重复用）
         var expiredItems = await _context.FileItems
-            .Where(f => f.ExpiresAt < now || (f.IsDeleted && f.DeletedAt < now.AddHours(-1)))
+            .Where(f => f.ExpiresAt < now || (f.IsDeleted && f.DeletedAt < now.AddDays(-7)))
             .ToListAsync();
 
         foreach (var item in expiredItems)
@@ -210,9 +221,9 @@ public class FileService : IFileService
             _context.FileItems.Remove(item);
         }
 
-        // 清理引用计数为 0 且超过 TTL 的物理文件
+        // 清理引用计数为 0 且超过 TTL 的物理文件（保留 7 天）
         var orphanContents = await _context.FileContents
-            .Where(fc => fc.ReferenceCount <= 0 && fc.LastAccessedAt < now.AddHours(-24))
+            .Where(fc => fc.ReferenceCount <= 0 && fc.LastAccessedAt < now.AddDays(-7))
             .ToListAsync();
 
         foreach (var content in orphanContents)

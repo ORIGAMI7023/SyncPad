@@ -28,7 +28,7 @@ public interface IFileService
     /// <summary>
     /// 获取文件下载流
     /// </summary>
-    Task<(Stream? Stream, string? MimeType, string? FileName)> DownloadFileAsync(int userId, int fileId);
+    Task<(Stream? Stream, string? MimeType, string? FileName, long FileSize)> DownloadFileAsync(int userId, int fileId);
 
     /// <summary>
     /// 删除文件（逻辑删除）

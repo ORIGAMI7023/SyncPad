@@ -118,4 +118,42 @@ public class FileClient : IFileClient
             return ApiResponse.Fail($"删除失败: {ex.Message}");
         }
     }
+
+    public async Task<bool> DownloadFileToCacheAsync(int fileId, string fileName, string cachePath, Action<long, long>? progressCallback = null)
+    {
+        try
+        {
+            EnsureBaseAddress();
+            var url = $"api/files/{fileId}";
+
+            using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+                return false;
+
+            var totalBytes = response.Content.Headers.ContentLength ?? 0;
+            var downloadedBytes = 0L;
+
+            using var contentStream = await response.Content.ReadAsStreamAsync();
+            using var fileStream = new FileStream(cachePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+            var buffer = new byte[8192];
+            int bytesRead;
+
+            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await fileStream.WriteAsync(buffer, 0, bytesRead);
+                downloadedBytes += bytesRead;
+
+                // 触发进度回调
+                progressCallback?.Invoke(downloadedBytes, totalBytes);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"下载文件到缓存失败: {ex.Message}");
+            return false;
+        }
+    }
 }

@@ -11,6 +11,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     private readonly IApiClient _apiClient;
     private readonly ITextHubClient _textHubClient;
     private readonly IFileClient _fileClient;
+    private readonly IFileCacheManager _cacheManager;
 
     private string _content = string.Empty;
     private string _connectionStatus = "未连接";
@@ -91,12 +92,13 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public event Action? LogoutRequested;
 
-    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient, IFileClient fileClient)
+    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient, IFileClient fileClient, IFileCacheManager cacheManager)
     {
         _authManager = authManager;
         _apiClient = apiClient;
         _textHubClient = textHubClient;
         _fileClient = fileClient;
+        _cacheManager = cacheManager;
 
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
@@ -220,7 +222,12 @@ public class PadViewModel : BaseViewModel, IDisposable
                     Files.Clear();
                     foreach (var file in response.Data.Files)
                     {
-                        Files.Add(new SelectableFileItem(file));
+                        var item = new SelectableFileItem(file)
+                        {
+                            Status = _cacheManager.GetFileStatus(file.Id),
+                            DownloadProgress = _cacheManager.GetDownloadProgress(file.Id)
+                        };
+                        Files.Add(item);
                     }
                     OnPropertyChanged(nameof(HasFiles));
                     OnPropertyChanged(nameof(HasNoFiles));
@@ -291,13 +298,60 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            var url = _fileClient.GetDownloadUrl(file.Id);
+            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
 
-            // 使用浏览器打开下载链接（不阻塞UI）
-            await Browser.Default.OpenAsync(url, BrowserLaunchMode.SystemPreferred);
+            // 检查是否已缓存
+            if (_cacheManager.IsCached(file.Id))
+            {
+                // 已缓存，直接打开系统文件浏览器查看
+                await Launcher.Default.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(cachePath)
+                });
+                return;
+            }
+
+            // 设置为下载中
+            file.Status = FileStatus.Downloading;
+            file.DownloadProgress = 0;
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Downloading);
+
+            // 下载到缓存
+            var success = await _fileClient.DownloadFileToCacheAsync(
+                file.Id,
+                file.FileName,
+                cachePath,
+                (downloaded, total) =>
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        _cacheManager.UpdateDownloadProgress(file.Id, downloaded, total);
+                        file.DownloadProgress = _cacheManager.GetDownloadProgress(file.Id);
+                    });
+                });
+
+            if (success)
+            {
+                file.Status = FileStatus.Cached;
+                _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
+
+                // 下载完成，打开文件
+                await Launcher.Default.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(cachePath)
+                });
+            }
+            else
+            {
+                file.Status = FileStatus.Error;
+                _cacheManager.SetFileStatus(file.Id, FileStatus.Error);
+                await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件", "确定");
+            }
         }
         catch (Exception ex)
         {
+            file.Status = FileStatus.Error;
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Error);
             System.Diagnostics.Debug.WriteLine($"下载文件失败: {ex.Message}");
         }
     }
@@ -314,7 +368,12 @@ public class PadViewModel : BaseViewModel, IDisposable
             if (confirm)
             {
                 var response = await _fileClient.DeleteFileAsync(file.Id);
-                if (!response.Success)
+                if (response.Success)
+                {
+                    // 删除本地缓存
+                    await _cacheManager.DeleteCacheAsync(file.Id);
+                }
+                else
                 {
                     await Application.Current!.MainPage!.DisplayAlert("删除失败", response.ErrorMessage, "确定");
                 }

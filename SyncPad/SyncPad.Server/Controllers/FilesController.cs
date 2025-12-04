@@ -91,7 +91,7 @@ public class FilesController : ControllerBase
     }
 
     /// <summary>
-    /// 下载文件
+    /// 下载文件（支持 Range 请求）
     /// </summary>
     [HttpGet("{fileId}")]
     [AllowAnonymous] // 允许匿名访问，因为我们会在方法内部验证token
@@ -121,12 +121,35 @@ public class FilesController : ControllerBase
                 return Unauthorized();
         }
 
-        var (stream, mimeType, fileName) = await _fileService.DownloadFileAsync(userId.Value, fileId);
+        var (stream, mimeType, fileName, fileSize) = await _fileService.DownloadFileAsync(userId.Value, fileId);
 
         if (stream == null)
             return NotFound();
 
-        return File(stream, mimeType ?? "application/octet-stream", fileName);
+        // 支持 Range 请求（用于断点续传和分块下载）
+        var rangeHeader = Request.Headers["Range"].ToString();
+        if (!string.IsNullOrEmpty(rangeHeader) && rangeHeader.StartsWith("bytes="))
+        {
+            var range = rangeHeader.Replace("bytes=", "").Split('-');
+            if (range.Length == 2 && long.TryParse(range[0], out var start))
+            {
+                var end = string.IsNullOrEmpty(range[1]) ? fileSize - 1 : long.Parse(range[1]);
+                var length = end - start + 1;
+
+                stream.Seek(start, SeekOrigin.Begin);
+
+                Response.StatusCode = 206; // Partial Content
+                Response.Headers["Content-Range"] = $"bytes {start}-{end}/{fileSize}";
+                Response.Headers["Accept-Ranges"] = "bytes";
+                Response.ContentLength = length;
+
+                return File(stream, mimeType ?? "application/octet-stream", fileName, enableRangeProcessing: true);
+            }
+        }
+
+        // 标准全量下载
+        Response.Headers["Accept-Ranges"] = "bytes";
+        return File(stream, mimeType ?? "application/octet-stream", fileName, enableRangeProcessing: true);
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal?> ValidateTokenAsync(string token)

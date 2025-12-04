@@ -24,6 +24,7 @@ builder.Services.AddScoped<ITokenStorage, BrowserTokenStorage>();
 builder.Services.AddScoped<IAuthManager, WebAuthManager>();
 builder.Services.AddScoped<ITextHubClient, TextHubClient>();
 builder.Services.AddScoped<IFileClient, FileClient>();
+builder.Services.AddScoped<IFileCacheManager, FileCacheManager>();
 
 var app = builder.Build();
 

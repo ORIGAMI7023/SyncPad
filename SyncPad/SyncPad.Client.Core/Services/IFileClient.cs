@@ -28,4 +28,13 @@ public interface IFileClient
     /// 删除文件
     /// </summary>
     Task<ApiResponse> DeleteFileAsync(int fileId);
+
+    /// <summary>
+    /// 下载文件到缓存（支持进度回调）
+    /// </summary>
+    /// <param name="fileId">文件 ID</param>
+    /// <param name="fileName">文件名</param>
+    /// <param name="cachePath">缓存路径</param>
+    /// <param name="progressCallback">进度回调 (downloaded, total)</param>
+    Task<bool> DownloadFileToCacheAsync(int fileId, string fileName, string cachePath, Action<long, long>? progressCallback = null);
 }

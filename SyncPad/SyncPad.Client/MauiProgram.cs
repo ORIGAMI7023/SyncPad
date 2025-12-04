@@ -35,6 +35,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAuthManager, AuthManager>();
         builder.Services.AddSingleton<ITextHubClient, TextHubClient>();
         builder.Services.AddSingleton<IFileClient, FileClient>();
+        builder.Services.AddSingleton<IFileCacheManager, FileCacheManager>();
 
         // 注册 ViewModels
         builder.Services.AddTransient<LoginViewModel>();
