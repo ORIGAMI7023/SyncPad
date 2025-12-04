@@ -8,8 +8,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// 注册 HttpClient
-builder.Services.AddHttpClient<IApiClient, ApiClient>();
+// 配置 HttpClient
+builder.Services.AddHttpClient("SyncPadApi");
+
+// 注册 ApiClient 为 Scoped（每个用户会话共享）
+builder.Services.AddScoped<IApiClient>(sp =>
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = factory.CreateClient("SyncPadApi");
+    return new ApiClient(httpClient);
+});
 
 // 注册服务
 builder.Services.AddScoped<ITokenStorage, BrowserTokenStorage>();

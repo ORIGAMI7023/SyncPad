@@ -143,27 +143,39 @@
     private string _connectionStatus = "未连接";
     private bool _isConnected = false;
     private bool _isUpdatingFromServer = false;
+    private bool _isInitialized = false;
     private CancellationTokenSource? _throttleCts;
     private readonly object _throttleLock = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        // 检查是否已登录
-        if (!AuthManager.IsLoggedIn)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        // 订阅事件
+        // 订阅事件（只订阅一次）
         TextHubClient.ConnectionStateChanged += OnConnectionStateChanged;
         TextHubClient.TextUpdateReceived += OnTextUpdateReceived;
+    }
 
-        // 连接 SignalR
-        await ConnectToHub();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_isInitialized)
+        {
+            _isInitialized = true;
 
-        // 加载初始文本
-        await RefreshText();
+            // 先尝试恢复会话（需要 JS 互操作）
+            await AuthManager.TryRestoreSessionAsync();
+
+            // 检查是否已登录
+            if (!AuthManager.IsLoggedIn)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            // 连接 SignalR
+            await ConnectToHub();
+
+            // 加载初始文本
+            await RefreshText();
+        }
     }
 
     private async Task ConnectToHub()

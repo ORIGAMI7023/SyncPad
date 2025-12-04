@@ -19,10 +19,15 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
-        // 配置 API 基础地址
-        builder.Services.AddHttpClient<IApiClient, ApiClient>(client =>
+        // 配置 HttpClient
+        builder.Services.AddHttpClient("SyncPadApi");
+
+        // 注册 ApiClient 为单例（确保 token 共享）
+        builder.Services.AddSingleton<IApiClient>(sp =>
         {
-            client.BaseAddress = new Uri("https://localhost:7167");
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = factory.CreateClient("SyncPadApi");
+            return new ApiClient(httpClient);
         });
 
         // 注册服务
