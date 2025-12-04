@@ -1,3 +1,11 @@
 <Solution>
+  <Project Path="SyncPad.Client.Core/SyncPad.Client.Core.csproj" />
+  <Project Path="SyncPad.Client.Tests/SyncPad.Client.Tests.csproj" />
+  <Project Path="SyncPad.Client/SyncPad.Client.csproj" />
+  <Project Path="SyncPad.Server.Core/SyncPad.Server.Core.csproj" />
+  <Project Path="SyncPad.Server.Data/SyncPad.Server.Data.csproj" />
+  <Project Path="SyncPad.Server.Tests/SyncPad.Server.Tests.csproj" />
   <Project Path="SyncPad.Server/SyncPad.Server.csproj" />
+  <Project Path="SyncPad.Shared/SyncPad.Shared.csproj" />
+  <Project Path="SyncPad.Web/SyncPad.Web.csproj" />
 </Solution>
