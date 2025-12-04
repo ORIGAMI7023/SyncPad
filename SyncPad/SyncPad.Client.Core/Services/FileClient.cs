@@ -8,17 +8,45 @@ public class FileClient : IFileClient
 {
     private readonly HttpClient _httpClient;
     private readonly IAuthManager _authManager;
+    private readonly IApiClient _apiClient;
 
-    public FileClient(HttpClient httpClient, IAuthManager authManager)
+    public FileClient(HttpClient httpClient, IAuthManager authManager, IApiClient apiClient)
     {
         _httpClient = httpClient;
         _authManager = authManager;
+        _apiClient = apiClient;
+    }
+
+    private void EnsureBaseAddress()
+    {
+        if (_httpClient.BaseAddress == null)
+        {
+            // 从 HubUrl 推断 API BaseUrl
+            // HubUrl 格式: http://localhost:5000/hubs/text
+            // BaseUrl 格式: http://localhost:5000/
+            var hubUrl = _authManager.GetHubUrl();
+            if (!string.IsNullOrEmpty(hubUrl))
+            {
+                var uri = new Uri(hubUrl);
+                var baseUrl = $"{uri.Scheme}://{uri.Authority}/";
+                _httpClient.BaseAddress = new Uri(baseUrl);
+            }
+        }
+
+        // 确保设置了认证令牌
+        var token = _authManager.Token;
+        if (!string.IsNullOrEmpty(token))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
     }
 
     public async Task<ApiResponse<FileListResponse>> GetFilesAsync()
     {
         try
         {
+            EnsureBaseAddress();
             var response = await _httpClient.GetFromJsonAsync<ApiResponse<FileListResponse>>("api/files");
             return response ?? ApiResponse<FileListResponse>.Fail("服务器返回空响应");
         }
@@ -32,6 +60,7 @@ public class FileClient : IFileClient
     {
         try
         {
+            EnsureBaseAddress();
             var response = await _httpClient.GetFromJsonAsync<ApiResponse<bool>>(
                 $"api/files/exists?fileName={Uri.EscapeDataString(fileName)}");
             return response?.Data ?? false;
@@ -46,6 +75,7 @@ public class FileClient : IFileClient
     {
         try
         {
+            EnsureBaseAddress();
             using var content = new MultipartFormDataContent();
             using var streamContent = new StreamContent(stream);
 
@@ -68,14 +98,17 @@ public class FileClient : IFileClient
 
     public string GetDownloadUrl(int fileId)
     {
+        EnsureBaseAddress();
         var baseUrl = _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
-        return $"{baseUrl}/api/files/{fileId}";
+        var token = _authManager.Token ?? "";
+        return $"{baseUrl}/api/files/{fileId}?token={Uri.EscapeDataString(token)}";
     }
 
     public async Task<ApiResponse> DeleteFileAsync(int fileId)
     {
         try
         {
+            EnsureBaseAddress();
             var response = await _httpClient.DeleteAsync($"api/files/{fileId}");
             var result = await response.Content.ReadFromJsonAsync<ApiResponse>();
             return result ?? ApiResponse.Fail("服务器返回空响应");

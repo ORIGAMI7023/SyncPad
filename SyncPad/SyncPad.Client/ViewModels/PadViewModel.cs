@@ -47,8 +47,8 @@ public class PadViewModel : BaseViewModel, IDisposable
     public string Username => _authManager.Username ?? "未知用户";
 
     // 文件列表
-    private ObservableCollection<FileItemDto> _files = [];
-    public ObservableCollection<FileItemDto> Files
+    private ObservableCollection<SelectableFileItem> _files = [];
+    public ObservableCollection<SelectableFileItem> Files
     {
         get => _files;
         set => SetProperty(ref _files, value);
@@ -57,11 +57,37 @@ public class PadViewModel : BaseViewModel, IDisposable
     public bool HasFiles => Files.Count > 0;
     public bool HasNoFiles => Files.Count == 0;
 
+    // 多选支持
+    public IEnumerable<SelectableFileItem> SelectedFiles => Files.Where(f => f.IsSelected);
+
+    private bool _isSelectionMode;
+    public bool IsSelectionMode
+    {
+        get => _isSelectionMode;
+        set => SetProperty(ref _isSelectionMode, value);
+    }
+
+    public bool HasSelectedFiles => SelectedFiles.Any();
+    public string SelectedFilesText => $"已选择 {SelectedFiles.Count()} 个文件";
+
     public ICommand LogoutCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand SelectFileCommand { get; }
     public ICommand DownloadFileCommand { get; }
     public ICommand DeleteFileCommand { get; }
+    public ICommand ToggleFileSelectionCommand { get; }
+    public ICommand BatchDownloadCommand { get; }
+    public ICommand BatchDeleteCommand { get; }
+    public ICommand ClearSelectionCommand { get; }
+
+    // 属性变更通知辅助方法
+    private void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(HasSelectedFiles));
+        OnPropertyChanged(nameof(SelectedFilesText));
+        ((Command)BatchDownloadCommand).ChangeCanExecute();
+        ((Command)BatchDeleteCommand).ChangeCanExecute();
+    }
 
     public event Action? LogoutRequested;
 
@@ -75,8 +101,12 @@ public class PadViewModel : BaseViewModel, IDisposable
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
         SelectFileCommand = new Command(async () => await SelectFileAsync());
-        DownloadFileCommand = new Command<FileItemDto>(async f => await DownloadFileAsync(f));
-        DeleteFileCommand = new Command<FileItemDto>(async f => await DeleteFileAsync(f));
+        DownloadFileCommand = new Command<SelectableFileItem>(async f => await DownloadFileAsync(f));
+        DeleteFileCommand = new Command<SelectableFileItem>(async f => await DeleteFileAsync(f));
+        ToggleFileSelectionCommand = new Command<SelectableFileItem>(ToggleFileSelection);
+        BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
+        BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
+        ClearSelectionCommand = new Command(ClearSelection);
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
@@ -190,7 +220,7 @@ public class PadViewModel : BaseViewModel, IDisposable
                     Files.Clear();
                     foreach (var file in response.Data.Files)
                     {
-                        Files.Add(file);
+                        Files.Add(new SelectableFileItem(file));
                     }
                     OnPropertyChanged(nameof(HasFiles));
                     OnPropertyChanged(nameof(HasNoFiles));
@@ -257,12 +287,14 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async Task DownloadFileAsync(FileItemDto file)
+    private async Task DownloadFileAsync(SelectableFileItem file)
     {
         try
         {
             var url = _fileClient.GetDownloadUrl(file.Id);
-            await Launcher.OpenAsync(url);
+
+            // 使用浏览器打开下载链接（不阻塞UI）
+            await Browser.Default.OpenAsync(url, BrowserLaunchMode.SystemPreferred);
         }
         catch (Exception ex)
         {
@@ -270,7 +302,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async Task DeleteFileAsync(FileItemDto file)
+    private async Task DeleteFileAsync(SelectableFileItem file)
     {
         try
         {
@@ -294,6 +326,65 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
+    private void ToggleFileSelection(SelectableFileItem file)
+    {
+        if (file != null)
+        {
+            file.IsSelected = !file.IsSelected;
+            NotifySelectionChanged();
+        }
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var file in Files)
+        {
+            file.IsSelected = false;
+        }
+        NotifySelectionChanged();
+    }
+
+    private async Task BatchDownloadAsync()
+    {
+        foreach (var file in SelectedFiles.ToList())
+        {
+            await DownloadFileAsync(file);
+        }
+    }
+
+    private async Task BatchDeleteAsync()
+    {
+        try
+        {
+            var confirm = await Application.Current!.MainPage!.DisplayAlert(
+                "确认批量删除",
+                $"确定要删除已选择的 {SelectedFiles.Count()} 个文件吗？",
+                "删除", "取消");
+
+            if (confirm)
+            {
+                var filesToDelete = SelectedFiles.ToList();
+                foreach (var file in filesToDelete)
+                {
+                    var response = await _fileClient.DeleteFileAsync(file.Id);
+                    if (!response.Success)
+                    {
+                        await Application.Current!.MainPage!.DisplayAlert(
+                            "删除失败",
+                            $"文件 \"{file.FileName}\" 删除失败: {response.ErrorMessage}",
+                            "确定");
+                    }
+                }
+
+                ClearSelection();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"批量删除文件失败: {ex.Message}");
+        }
+    }
+
     private void OnFileUpdateReceived(FileSyncMessage message)
     {
         MainThread.BeginInvokeOnMainThread(() =>
@@ -308,7 +399,7 @@ public class PadViewModel : BaseViewModel, IDisposable
                         if (existing != null)
                             Files.Remove(existing);
 
-                        Files.Insert(0, message.File);
+                        Files.Insert(0, new SelectableFileItem(message.File));
                     }
                     break;
 
@@ -317,7 +408,11 @@ public class PadViewModel : BaseViewModel, IDisposable
                     {
                         var toRemove = Files.FirstOrDefault(f => f.Id == message.FileId.Value);
                         if (toRemove != null)
+                        {
                             Files.Remove(toRemove);
+                            // 选中状态会自动随着移除而清除
+                            NotifySelectionChanged();
+                        }
                     }
                     break;
             }

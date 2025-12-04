@@ -4,43 +4,108 @@
 @inject IAuthManager AuthManager
 @inject IApiClient ApiClient
 @inject ITextHubClient TextHubClient
+@inject IFileClient FileClient
 @inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>面板 - SyncPad</PageTitle>
 
-<div class="pad-container">
-    <!-- 顶部工具栏 -->
-    <div class="toolbar">
-        <div class="user-info">
-            <span>用户: <strong>@AuthManager.Username</strong></span>
+<div class="pad-layout">
+    <!-- 左侧主区域（文本编辑） -->
+    <div class="text-area">
+        <!-- 顶部工具栏 -->
+        <div class="toolbar">
+            <div class="user-info">
+                <span>用户: <strong>@AuthManager.Username</strong></span>
+            </div>
+            <div class="toolbar-actions">
+                <button class="btn-secondary" @onclick="RefreshText">刷新</button>
+                <button class="btn-danger" @onclick="Logout">登出</button>
+            </div>
         </div>
-        <div class="toolbar-actions">
-            <button class="btn-secondary" @onclick="RefreshText">刷新</button>
-            <button class="btn-danger" @onclick="Logout">登出</button>
+
+        <!-- 文本编辑区域 -->
+        <div class="editor-container">
+            <textarea @bind="_content" @bind:event="oninput" @onkeyup="HandleTextChange" placeholder="在这里输入文本..."></textarea>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="connection-status">
+                <span class="status-indicator @(_isConnected ? "connected" : "disconnected")"></span>
+                <span>@_connectionStatus</span>
+            </div>
         </div>
     </div>
 
-    <!-- 文本编辑区域 -->
-    <div class="editor-container">
-        <textarea @bind="_content" @bind:event="oninput" @onkeyup="HandleTextChange" placeholder="在这里输入文本..."></textarea>
-    </div>
-
-    <!-- 状态栏 -->
-    <div class="status-bar">
-        <div class="connection-status">
-            <span class="status-indicator @(_isConnected ? "connected" : "disconnected")"></span>
-            <span>@_connectionStatus</span>
+    <!-- 右侧文件区域 -->
+    <div class="file-area">
+        <!-- 文件区域标题栏 -->
+        <div class="file-header">
+            <h3>文件列表</h3>
+            <label class="btn-primary upload-btn">
+                上传
+                <InputFile OnChange="HandleFileSelected" style="display: none;" />
+            </label>
         </div>
+
+        <!-- 文件列表 -->
+        <div class="file-list">
+            @if (_files.Count == 0)
+            {
+                <div class="empty-state">暂无文件</div>
+            }
+            else
+            {
+                @foreach (var file in _files)
+                {
+                    <div class="file-item">
+                        <input type="checkbox" @bind="file.IsSelected" @onclick="() => OnFileSelectionChanged()" />
+                        <div class="file-info">
+                            <div class="file-name">@file.File.FileName</div>
+                            <div class="file-meta">
+                                @file.File.FileSize.ToString("N0") 字节 · @file.File.UploadedAt.ToString("yyyy-MM-dd HH:mm")
+                            </div>
+                        </div>
+                        <button class="btn-success btn-icon" @onclick="() => DownloadFile(file)" title="下载">📥</button>
+                        <button class="btn-danger btn-icon" @onclick="() => DeleteFile(file)" title="删除">🗑</button>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- 批量操作工具栏 -->
+        @if (SelectedFilesCount > 0)
+        {
+            <div class="batch-toolbar">
+                <span class="batch-info">已选择 @SelectedFilesCount 个文件</span>
+                <button class="btn-success btn-sm" @onclick="BatchDownload">批量下载</button>
+                <button class="btn-danger btn-sm" @onclick="BatchDelete">批量删除</button>
+                <button class="btn-secondary btn-sm" @onclick="ClearSelection">取消</button>
+            </div>
+        }
     </div>
 </div>
 
 <style>
-    .pad-container {
+    .pad-layout {
         display: flex;
-        flex-direction: column;
         height: 100vh;
         background-color: #f5f5f5;
+    }
+
+    .text-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #ddd;
+    }
+
+    .file-area {
+        width: 350px;
+        display: flex;
+        flex-direction: column;
+        background-color: white;
     }
 
     .toolbar {
@@ -61,30 +126,58 @@
         gap: 10px;
     }
 
-    .btn-secondary {
+    .btn-secondary, .btn-primary, .btn-success, .btn-danger {
         padding: 8px 16px;
-        background-color: #6c757d;
-        color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
     }
 
     .btn-secondary:hover {
         background-color: #5a6268;
     }
 
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #0069d9;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background-color: #218838;
+    }
+
     .btn-danger {
-        padding: 8px 16px;
         background-color: #dc3545;
         color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
     }
 
     .btn-danger:hover {
         background-color: #c82333;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .btn-icon {
+        padding: 6px 10px;
+        font-size: 16px;
     }
 
     .editor-container {
@@ -136,6 +229,109 @@
     .status-indicator.disconnected {
         background-color: #dc3545;
     }
+
+    .file-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background-color: #e9ecef;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .file-header h3 {
+        margin: 0;
+        font-size: 16px;
+    }
+
+    .upload-btn {
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .file-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+        font-size: 14px;
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+
+    .file-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .file-item input[type="checkbox"] {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+
+    .file-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .file-name {
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .file-meta {
+        font-size: 11px;
+        color: #999;
+        margin-top: 4px;
+    }
+
+    .batch-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #ddd;
+    }
+
+    .batch-info {
+        flex: 1;
+        font-size: 12px;
+        color: #666;
+    }
+
+    /* 响应式设计 */
+    @@media (max-width: 768px) {
+        .pad-layout {
+            flex-direction: column;
+        }
+
+        .text-area {
+            border-right: none;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .file-area {
+            width: 100%;
+            flex: 1;
+        }
+    }
 </style>
 
 @code {
@@ -147,11 +343,16 @@
     private CancellationTokenSource? _throttleCts;
     private readonly object _throttleLock = new();
 
+    // 文件列表
+    private List<SelectableFileItemWeb> _files = new();
+    private int SelectedFilesCount => _files.Count(f => f.IsSelected);
+
     protected override void OnInitialized()
     {
         // 订阅事件（只订阅一次）
         TextHubClient.ConnectionStateChanged += OnConnectionStateChanged;
         TextHubClient.TextUpdateReceived += OnTextUpdateReceived;
+        TextHubClient.FileUpdateReceived += OnFileUpdateReceived;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -175,6 +376,9 @@
 
             // 加载初始文本
             await RefreshText();
+
+            // 加载文件列表
+            await RefreshFiles();
         }
     }
 
@@ -216,6 +420,23 @@
         catch (Exception ex)
         {
             Console.WriteLine($"刷新文本失败: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshFiles()
+    {
+        try
+        {
+            var response = await FileClient.GetFilesAsync();
+            if (response.Success && response.Data != null)
+            {
+                _files = response.Data.Files.Select(f => new SelectableFileItemWeb(f)).ToList();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"刷新文件列表失败: {ex.Message}");
         }
     }
 
@@ -267,6 +488,130 @@
         });
     }
 
+    private void OnFileUpdateReceived(FileSyncMessage message)
+    {
+        InvokeAsync(() =>
+        {
+            switch (message.Action)
+            {
+                case "added":
+                    if (message.File != null)
+                    {
+                        var existing = _files.FirstOrDefault(f => f.File.FileName == message.File.FileName);
+                        if (existing != null)
+                            _files.Remove(existing);
+
+                        _files.Insert(0, new SelectableFileItemWeb(message.File));
+                    }
+                    break;
+
+                case "deleted":
+                    if (message.FileId.HasValue)
+                    {
+                        var toRemove = _files.FirstOrDefault(f => f.File.Id == message.FileId.Value);
+                        if (toRemove != null)
+                            _files.Remove(toRemove);
+                    }
+                    break;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            await UploadFile(file);
+        }
+    }
+
+    private async Task UploadFile(Microsoft.AspNetCore.Components.Forms.IBrowserFile file)
+    {
+        try
+        {
+            // 检查同名文件
+            if (await FileClient.FileExistsAsync(file.Name))
+            {
+                // Web 环境下使用 JS Interop 来显示确认对话框
+                // 这里简化处理，直接覆盖
+                using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                await FileClient.UploadFileAsync(file.Name, stream, file.ContentType, overwrite: true);
+            }
+            else
+            {
+                using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                var response = await FileClient.UploadFileAsync(file.Name, stream, file.ContentType);
+
+                if (!response.Success)
+                {
+                    Console.WriteLine($"上传失败: {response.ErrorMessage}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"上传文件失败: {ex.Message}");
+        }
+    }
+
+    private void DownloadFile(SelectableFileItemWeb file)
+    {
+        var url = FileClient.GetDownloadUrl(file.File.Id);
+        Navigation.NavigateTo(url, true);
+    }
+
+    private async Task DeleteFile(SelectableFileItemWeb file)
+    {
+        // 简化处理，直接删除
+        try
+        {
+            var response = await FileClient.DeleteFileAsync(file.File.Id);
+            if (!response.Success)
+            {
+                Console.WriteLine($"删除失败: {response.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"删除文件失败: {ex.Message}");
+        }
+    }
+
+    private void OnFileSelectionChanged()
+    {
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var file in _files)
+        {
+            file.IsSelected = false;
+        }
+        StateHasChanged();
+    }
+
+    private void BatchDownload()
+    {
+        foreach (var file in _files.Where(f => f.IsSelected))
+        {
+            DownloadFile(file);
+        }
+    }
+
+    private async Task BatchDelete()
+    {
+        var filesToDelete = _files.Where(f => f.IsSelected).ToList();
+        foreach (var file in filesToDelete)
+        {
+            await DeleteFile(file);
+        }
+        ClearSelection();
+    }
+
     private async Task Logout()
     {
         await TextHubClient.DisconnectAsync();
@@ -278,7 +623,20 @@
     {
         TextHubClient.ConnectionStateChanged -= OnConnectionStateChanged;
         TextHubClient.TextUpdateReceived -= OnTextUpdateReceived;
+        TextHubClient.FileUpdateReceived -= OnFileUpdateReceived;
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
+    }
+
+    // Web 专用的可选择文件项
+    private class SelectableFileItemWeb
+    {
+        public FileItemDto File { get; }
+        public bool IsSelected { get; set; }
+
+        public SelectableFileItemWeb(FileItemDto file)
+        {
+            File = file;
+        }
     }
 }

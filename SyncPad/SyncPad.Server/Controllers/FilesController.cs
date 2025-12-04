@@ -15,11 +15,13 @@ public class FilesController : ControllerBase
 {
     private readonly IFileService _fileService;
     private readonly IHubContext<TextHub> _hubContext;
+    private readonly IConfiguration _configuration;
 
-    public FilesController(IFileService fileService, IHubContext<TextHub> hubContext)
+    public FilesController(IFileService fileService, IHubContext<TextHub> hubContext, IConfiguration configuration)
     {
         _fileService = fileService;
         _hubContext = hubContext;
+        _configuration = configuration;
     }
 
     /// <summary>
@@ -92,11 +94,32 @@ public class FilesController : ControllerBase
     /// 下载文件
     /// </summary>
     [HttpGet("{fileId}")]
-    public async Task<IActionResult> DownloadFile(int fileId)
+    [AllowAnonymous] // 允许匿名访问，因为我们会在方法内部验证token
+    public async Task<IActionResult> DownloadFile(int fileId, [FromQuery] string? token = null)
     {
-        var userId = GetUserId();
-        if (userId == null)
-            return Unauthorized();
+        int? userId;
+
+        // 如果提供了token查询参数，使用它进行认证
+        if (!string.IsNullOrEmpty(token))
+        {
+            // 验证token并获取userId
+            var principal = await ValidateTokenAsync(token);
+            if (principal == null)
+                return Unauthorized();
+
+            var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var parsedUserId))
+                return Unauthorized();
+
+            userId = parsedUserId;
+        }
+        else
+        {
+            // 使用标准Bearer认证
+            userId = GetUserId();
+            if (userId == null)
+                return Unauthorized();
+        }
 
         var (stream, mimeType, fileName) = await _fileService.DownloadFileAsync(userId.Value, fileId);
 
@@ -104,6 +127,35 @@ public class FilesController : ControllerBase
             return NotFound();
 
         return File(stream, mimeType ?? "application/octet-stream", fileName);
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal?> ValidateTokenAsync(string token)
+    {
+        try
+        {
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var key = System.Text.Encoding.ASCII.GetBytes(
+                _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key未配置"));
+
+            var validationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _configuration["Jwt:Audience"],
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
+            return await Task.FromResult(principal);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
