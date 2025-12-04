@@ -71,3 +71,6 @@ coverage/
 
 # Publish output
 publish/
+
+# Linux deployment scripts (contains sensitive info)
+SyncPad/linux/
