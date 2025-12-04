@@ -77,3 +77,4 @@ SyncPad/linux/
 
 # Claude Code settings
 .claude/
+/.claude/settings.local.json
