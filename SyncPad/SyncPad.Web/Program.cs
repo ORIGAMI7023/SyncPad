@@ -23,6 +23,7 @@ builder.Services.AddScoped<IApiClient>(sp =>
 builder.Services.AddScoped<ITokenStorage, BrowserTokenStorage>();
 builder.Services.AddScoped<IAuthManager, WebAuthManager>();
 builder.Services.AddScoped<ITextHubClient, TextHubClient>();
+builder.Services.AddScoped<IFileClient, FileClient>();
 
 var app = builder.Build();
 

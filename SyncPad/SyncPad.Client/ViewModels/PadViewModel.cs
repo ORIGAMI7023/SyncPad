@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
 using SyncPad.Client.Core.Services;
 using SyncPad.Shared.Models;
@@ -9,6 +10,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     private readonly IAuthManager _authManager;
     private readonly IApiClient _apiClient;
     private readonly ITextHubClient _textHubClient;
+    private readonly IFileClient _fileClient;
 
     private string _content = string.Empty;
     private string _connectionStatus = "未连接";
@@ -44,23 +46,42 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public string Username => _authManager.Username ?? "未知用户";
 
+    // 文件列表
+    private ObservableCollection<FileItemDto> _files = [];
+    public ObservableCollection<FileItemDto> Files
+    {
+        get => _files;
+        set => SetProperty(ref _files, value);
+    }
+
+    public bool HasFiles => Files.Count > 0;
+    public bool HasNoFiles => Files.Count == 0;
+
     public ICommand LogoutCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand SelectFileCommand { get; }
+    public ICommand DownloadFileCommand { get; }
+    public ICommand DeleteFileCommand { get; }
 
     public event Action? LogoutRequested;
 
-    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient)
+    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient, IFileClient fileClient)
     {
         _authManager = authManager;
         _apiClient = apiClient;
         _textHubClient = textHubClient;
+        _fileClient = fileClient;
 
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
+        SelectFileCommand = new Command(async () => await SelectFileAsync());
+        DownloadFileCommand = new Command<FileItemDto>(async f => await DownloadFileAsync(f));
+        DeleteFileCommand = new Command<FileItemDto>(async f => await DeleteFileAsync(f));
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
         _textHubClient.TextUpdateReceived += OnTextUpdateReceived;
+        _textHubClient.FileUpdateReceived += OnFileUpdateReceived;
     }
 
     public async Task InitializeAsync()
@@ -70,6 +91,9 @@ public class PadViewModel : BaseViewModel, IDisposable
 
         // 加载初始文本
         await RefreshTextAsync();
+
+        // 加载文件列表
+        await RefreshFilesAsync();
     }
 
     private async Task ConnectToHubAsync()
@@ -154,10 +178,160 @@ public class PadViewModel : BaseViewModel, IDisposable
         LogoutRequested?.Invoke();
     }
 
+    private async Task RefreshFilesAsync()
+    {
+        try
+        {
+            var response = await _fileClient.GetFilesAsync();
+            if (response.Success && response.Data != null)
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    Files.Clear();
+                    foreach (var file in response.Data.Files)
+                    {
+                        Files.Add(file);
+                    }
+                    OnPropertyChanged(nameof(HasFiles));
+                    OnPropertyChanged(nameof(HasNoFiles));
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"刷新文件列表失败: {ex.Message}");
+        }
+    }
+
+    private async Task SelectFileAsync()
+    {
+        try
+        {
+            var result = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择要上传的文件"
+            });
+
+            if (result != null)
+            {
+                await UploadFileAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"选择文件失败: {ex.Message}");
+        }
+    }
+
+    private async Task UploadFileAsync(FileResult fileResult)
+    {
+        try
+        {
+            // 检查同名文件
+            if (await _fileClient.FileExistsAsync(fileResult.FileName))
+            {
+                var overwrite = await Application.Current!.MainPage!.DisplayAlert(
+                    "文件已存在",
+                    $"文件 \"{fileResult.FileName}\" 已存在，是否覆盖？",
+                    "覆盖", "取消");
+
+                if (!overwrite) return;
+
+                using var stream = await fileResult.OpenReadAsync();
+                await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType, overwrite: true);
+            }
+            else
+            {
+                using var stream = await fileResult.OpenReadAsync();
+                var response = await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType);
+
+                if (!response.Success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadFileAsync(FileItemDto file)
+    {
+        try
+        {
+            var url = _fileClient.GetDownloadUrl(file.Id);
+            await Launcher.OpenAsync(url);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"下载文件失败: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteFileAsync(FileItemDto file)
+    {
+        try
+        {
+            var confirm = await Application.Current!.MainPage!.DisplayAlert(
+                "确认删除",
+                $"确定要删除文件 \"{file.FileName}\" 吗？",
+                "删除", "取消");
+
+            if (confirm)
+            {
+                var response = await _fileClient.DeleteFileAsync(file.Id);
+                if (!response.Success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("删除失败", response.ErrorMessage, "确定");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"删除文件失败: {ex.Message}");
+        }
+    }
+
+    private void OnFileUpdateReceived(FileSyncMessage message)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            switch (message.Action)
+            {
+                case "added":
+                    if (message.File != null)
+                    {
+                        // 移除同名旧文件（如果存在）
+                        var existing = Files.FirstOrDefault(f => f.FileName == message.File.FileName);
+                        if (existing != null)
+                            Files.Remove(existing);
+
+                        Files.Insert(0, message.File);
+                    }
+                    break;
+
+                case "deleted":
+                    if (message.FileId.HasValue)
+                    {
+                        var toRemove = Files.FirstOrDefault(f => f.Id == message.FileId.Value);
+                        if (toRemove != null)
+                            Files.Remove(toRemove);
+                    }
+                    break;
+            }
+
+            OnPropertyChanged(nameof(HasFiles));
+            OnPropertyChanged(nameof(HasNoFiles));
+        });
+    }
+
     public void Dispose()
     {
         _textHubClient.ConnectionStateChanged -= OnConnectionStateChanged;
         _textHubClient.TextUpdateReceived -= OnTextUpdateReceived;
+        _textHubClient.FileUpdateReceived -= OnFileUpdateReceived;
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
     }
