@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="SyncPad.Client.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:SyncPad.Client.Views"
+    Title="SyncPad"
+    Shell.FlyoutBehavior="Disabled">
+
+    <ShellContent
+        Title="登录"
+        ContentTemplate="{DataTemplate views:LoginPage}"
+        Route="LoginPage" />
+
+    <ShellContent
+        Title="面板"
+        ContentTemplate="{DataTemplate views:PadPage}"
+        Route="PadPage" />
+
+</Shell>

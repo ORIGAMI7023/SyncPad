@@ -1,0 +1,8 @@
+﻿<maui:MauiWinUIApplication
+    x:Class="SyncPad.Client.WinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:maui="using:Microsoft.Maui"
+    xmlns:local="using:SyncPad.Client.WinUI">
+
+</maui:MauiWinUIApplication>

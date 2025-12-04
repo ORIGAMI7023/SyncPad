@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:SyncPad.Client.ViewModels"
+             x:Class="SyncPad.Client.Views.PadPage"
+             Title="SyncPad">
+
+    <Grid Padding="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶部工具栏 -->
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 用户信息 -->
+            <Label Grid.Column="0"
+                   VerticalOptions="Center">
+                <Label.FormattedText>
+                    <FormattedString>
+                        <Span Text="用户: " FontAttributes="Bold"/>
+                        <Span Text="{Binding Username}"/>
+                    </FormattedString>
+                </Label.FormattedText>
+            </Label>
+
+            <!-- 刷新按钮 -->
+            <Button Grid.Column="1"
+                    Text="刷新"
+                    Command="{Binding RefreshCommand}"
+                    Margin="5,0"/>
+
+            <!-- 登出按钮 -->
+            <Button Grid.Column="2"
+                    Text="登出"
+                    Command="{Binding LogoutCommand}"/>
+        </Grid>
+
+        <!-- 文本编辑区域 -->
+        <Editor Grid.Row="1"
+                Text="{Binding Content, Mode=TwoWay}"
+                Placeholder="在这里输入文本..."
+                FontSize="16"
+                AutoSize="TextChanges"/>
+
+        <!-- 状态栏 -->
+        <Grid Grid.Row="2" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 连接状态指示器 -->
+            <Ellipse Grid.Column="0"
+                     WidthRequest="12"
+                     HeightRequest="12"
+                     Fill="{Binding IsConnected, Converter={StaticResource BoolToColorConverter}}"
+                     VerticalOptions="Center"
+                     Margin="0,0,5,0"/>
+
+            <!-- 连接状态文本 -->
+            <Label Grid.Column="1"
+                   Text="{Binding ConnectionStatus}"
+                   VerticalOptions="Center"
+                   FontSize="12"
+                   TextColor="Gray"/>
+        </Grid>
+    </Grid>
+
+</ContentPage>

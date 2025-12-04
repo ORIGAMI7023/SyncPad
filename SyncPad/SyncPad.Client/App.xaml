@@ -1,0 +1,20 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:SyncPad.Client"
+             xmlns:converters="clr-namespace:SyncPad.Client.Converters"
+             x:Class="SyncPad.Client.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 转换器 -->
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
+            <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

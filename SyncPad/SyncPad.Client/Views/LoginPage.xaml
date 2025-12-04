@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:SyncPad.Client.ViewModels"
+             x:Class="SyncPad.Client.Views.LoginPage"
+             Title="登录">
+
+    <Grid Padding="20" VerticalOptions="Center" HorizontalOptions="Center" WidthRequest="300">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <Label Grid.Row="0"
+               Text="SyncPad"
+               FontSize="32"
+               FontAttributes="Bold"
+               HorizontalOptions="Center"
+               Margin="0,0,0,30"/>
+
+        <!-- 用户名 -->
+        <Entry Grid.Row="1"
+               Placeholder="用户名"
+               Text="{Binding Username}"
+               Margin="0,0,0,10"/>
+
+        <!-- 密码 -->
+        <Entry Grid.Row="2"
+               Placeholder="密码"
+               Text="{Binding Password}"
+               IsPassword="True"
+               Margin="0,0,0,10"/>
+
+        <!-- 错误信息 -->
+        <Label Grid.Row="3"
+               Text="{Binding ErrorMessage}"
+               TextColor="Red"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringToBoolConverter}}"
+               Margin="0,0,0,10"/>
+
+        <!-- 登录按钮 -->
+        <Button Grid.Row="4"
+                Text="登录"
+                Command="{Binding LoginCommand}"
+                IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBoolConverter}}"
+                Margin="0,10,0,0"/>
+
+        <!-- 加载指示器 -->
+        <ActivityIndicator Grid.Row="5"
+                           IsRunning="{Binding IsLoading}"
+                           IsVisible="{Binding IsLoading}"
+                           Margin="0,10,0,0"/>
+    </Grid>
+
+</ContentPage>
