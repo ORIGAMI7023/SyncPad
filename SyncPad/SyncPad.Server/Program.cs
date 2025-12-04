@@ -53,6 +53,8 @@ builder.Services.AddAuthorization();
 // 注册服务
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITextSyncService, TextSyncService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddHostedService<SyncPad.Server.Services.FileCleanupService>();
 
 // 配置 CORS
 builder.Services.AddCors(options =>
@@ -79,6 +81,12 @@ builder.Services.AddSignalR();
 
 // 配置控制器
 builder.Services.AddControllers();
+
+// 配置文件上传大小限制
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100MB
+});
 
 // 配置 Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();

@@ -12,4 +12,5 @@ public class User
 
     // 导航属性
     public TextContent? TextContent { get; set; }
+    public ICollection<FileItem>? Files { get; set; }
 }

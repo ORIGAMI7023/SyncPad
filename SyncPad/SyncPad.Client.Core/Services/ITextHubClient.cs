@@ -18,6 +18,16 @@ public interface ITextHubClient
     event Action<TextSyncMessage>? TextUpdateReceived;
 
     /// <summary>
+    /// 收到文件更新事件
+    /// </summary>
+    event Action<FileSyncMessage>? FileUpdateReceived;
+
+    /// <summary>
+    /// 收到文件列表事件
+    /// </summary>
+    event Action<List<FileItemDto>>? FileListReceived;
+
+    /// <summary>
     /// 是否已连接
     /// </summary>
     bool IsConnected { get; }
@@ -41,4 +51,9 @@ public interface ITextHubClient
     /// 请求获取最新文本
     /// </summary>
     Task RequestLatestTextAsync();
+
+    /// <summary>
+    /// 请求获取文件列表
+    /// </summary>
+    Task RequestFileListAsync();
 }

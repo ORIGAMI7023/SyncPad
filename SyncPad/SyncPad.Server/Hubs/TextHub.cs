@@ -13,10 +13,12 @@ namespace SyncPad.Server.Hubs;
 public class TextHub : Hub
 {
     private readonly ITextSyncService _textSyncService;
+    private readonly IFileService _fileService;
 
-    public TextHub(ITextSyncService textSyncService)
+    public TextHub(ITextSyncService textSyncService, IFileService fileService)
     {
         _textSyncService = textSyncService;
+        _fileService = fileService;
     }
 
     /// <summary>
@@ -80,6 +82,21 @@ public class TextHub : Hub
         {
             await Clients.Caller.SendAsync("ReceiveTextUpdate", text);
         }
+    }
+
+    /// <summary>
+    /// 客户端请求获取文件列表
+    /// </summary>
+    public async Task RequestFileList()
+    {
+        var userId = GetUserId();
+        if (userId == null)
+        {
+            return;
+        }
+
+        var files = await _fileService.GetFilesAsync(userId.Value);
+        await Clients.Caller.SendAsync("ReceiveFileList", files);
     }
 
     private int? GetUserId()

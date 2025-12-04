@@ -12,6 +12,8 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
 
     public event Action<bool>? ConnectionStateChanged;
     public event Action<TextSyncMessage>? TextUpdateReceived;
+    public event Action<FileSyncMessage>? FileUpdateReceived;
+    public event Action<List<FileItemDto>>? FileListReceived;
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
 
@@ -55,6 +57,18 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
             TextUpdateReceived?.Invoke(message);
         });
 
+        // 监听文件更新
+        _hubConnection.On<FileSyncMessage>("ReceiveFileUpdate", message =>
+        {
+            FileUpdateReceived?.Invoke(message);
+        });
+
+        // 监听文件列表
+        _hubConnection.On<List<FileItemDto>>("ReceiveFileList", files =>
+        {
+            FileListReceived?.Invoke(files);
+        });
+
         await _hubConnection.StartAsync();
         ConnectionStateChanged?.Invoke(true);
     }
@@ -83,6 +97,14 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
         if (_hubConnection?.State == HubConnectionState.Connected)
         {
             await _hubConnection.InvokeAsync("RequestLatestText");
+        }
+    }
+
+    public async Task RequestFileListAsync()
+    {
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            await _hubConnection.InvokeAsync("RequestFileList");
         }
     }
 
