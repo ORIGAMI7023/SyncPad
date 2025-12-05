@@ -3,6 +3,15 @@ using SyncPad.Client.Core.Services;
 using SyncPad.Client.Services;
 using SyncPad.Client.ViewModels;
 using SyncPad.Client.Views;
+#if WINDOWS
+using SyncPad.Client.Platforms.Windows;
+#elif MACCATALYST
+using SyncPad.Client.Platforms.MacCatalyst;
+#elif ANDROID
+using SyncPad.Client.Platforms.Android;
+#elif IOS
+using SyncPad.Client.Platforms.iOS;
+#endif
 
 namespace SyncPad.Client;
 
@@ -20,23 +29,7 @@ public static class MauiProgram
             });
 
         // 配置 HttpClient
-        builder.Services.AddHttpClient("SyncPadApi")
-#if DEBUG && (MACCATALYST || IOS)
-            // Mac/iOS 开发环境允许不安全的 localhost SSL 连接
-            .ConfigurePrimaryHttpMessageHandler(() =>
-            {
-                var handler = new HttpClientHandler();
-                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-                {
-                    // 仅允许 localhost 跳过 SSL 验证
-                    if (message.RequestUri?.Host == "localhost" || message.RequestUri?.Host == "127.0.0.1")
-                        return true;
-                    return errors == System.Net.Security.SslPolicyErrors.None;
-                };
-                return handler;
-            })
-#endif
-            ;
+        builder.Services.AddHttpClient("SyncPadApi");
 
         // 注册 ApiClient 为单例（确保 token 共享）
         builder.Services.AddSingleton<IApiClient>(sp =>
@@ -46,13 +39,10 @@ public static class MauiProgram
             return new ApiClient(httpClient);
         });
 
-        // 注册服务
-#if MACCATALYST
-        // Mac 端使用文件存储（避免 Keychain 签名问题）
-        builder.Services.AddSingleton<ITokenStorage, FileTokenStorage>();
-#else
-        builder.Services.AddSingleton<ITokenStorage, MauiTokenStorage>();
-#endif
+        // 注册平台特定服务
+        builder.Services.AddPlatformServices();
+
+        // 注册共享服务
         builder.Services.AddSingleton<IAuthManager, AuthManager>();
         builder.Services.AddSingleton<ITextHubClient, TextHubClient>();
         builder.Services.AddSingleton<IFileClient, FileClient>();

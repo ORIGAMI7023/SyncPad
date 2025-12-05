@@ -1,28 +1,21 @@
-using Microsoft.Maui.Storage;
 using SyncPad.Client.Core.Services;
 
 namespace SyncPad.Client.Services;
 
 /// <summary>
-/// 跨平台文件操作服务实现
+/// Android 端文件操作服务实现
 /// </summary>
 public class FileOperationService : IFileOperationService
 {
     public bool CopyFilesToClipboard(IEnumerable<string> filePaths)
     {
-#if MACCATALYST
-        return Platforms.MacCatalyst.ClipboardService.CopyFilesToClipboard(filePaths);
-#elif WINDOWS
-        return Platforms.Windows.ClipboardService.CopyFilesToClipboard(filePaths);
-#else
-        // iOS/Android 不支持文件复制到剪贴板
+        // Android 不支持文件复制到剪贴板
         return false;
-#endif
     }
 
     public bool CopyFileToClipboard(string filePath)
     {
-        return CopyFilesToClipboard(new[] { filePath });
+        return false;
     }
 
     public async Task<bool> ExportFileAsync(string sourceFilePath, string targetDirectory)
@@ -73,16 +66,9 @@ public class FileOperationService : IFileOperationService
     {
         try
         {
-#if MACCATALYST
-            return await Platforms.MacCatalyst.FolderPickerService.PickFolderAsync();
-#elif WINDOWS
-            // TODO: 实现 Windows 原生文件夹选择器
+            // Android 移动端暂不实现文件夹选择
             await Task.CompletedTask;
             return null;
-#else
-            await Task.CompletedTask;
-            return null;
-#endif
         }
         catch (Exception ex)
         {
