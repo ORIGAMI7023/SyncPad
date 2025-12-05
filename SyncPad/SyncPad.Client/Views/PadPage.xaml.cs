@@ -60,30 +60,18 @@ public partial class PadPage : ContentPage
             // 内部拖放回调
             onInternalDrop: async (fileId, x, y) =>
             {
-                _viewModel.AddDebugLog($"[Windows原生] 内部拖放: FileId={fileId}, 像素坐标=({x:F1},{y:F1})");
-
                 // 查找被拖动的文件
                 var draggedFile = _viewModel.Files.FirstOrDefault(f => f.Id == fileId);
-                if (draggedFile != null)
-                {
-                    _viewModel.AddDebugLog($"[Windows原生] 拖动文件: {draggedFile.FileName}, 原位置=({draggedFile.PositionX},{draggedFile.PositionY})");
-                }
 
                 // 计算网格位置
                 var (targetX, targetY) = CalculateGridPosition(x, y);
-                _viewModel.AddDebugLog($"[Windows原生] 计算目标网格位置: ({targetX},{targetY})");
 
                 // 更新文件位置
-                _viewModel.AddDebugLog($"[Windows原生] 调用 UpdateFilePositionAsync...");
                 await _viewModel.UpdateFilePositionAsync(fileId, targetX, targetY);
 
-                _viewModel.AddDebugLog($"[Windows原生] 等待300ms后刷新...");
                 await Task.Delay(300);
 
-                _viewModel.AddDebugLog($"[Windows原生] 调用 RefreshFilesAsync...");
                 await _viewModel.RefreshFilesAsync();
-
-                _viewModel.AddDebugLog($"[Windows原生] 位置更新完成，新位置应该是 ({targetX},{targetY})");
             },
             // DragOver 回调（显示指示器）
             onDragOver: (x, y) =>
@@ -141,8 +129,6 @@ public partial class PadPage : ContentPage
             _draggedItem = item;
             e.Data.Properties["FileItem"] = item;
 
-            _viewModel.AddDebugLog($"开始拖动: {item.FileName}");
-
             // 设置拖动时的视觉效果
             visual.Opacity = 0.5;
 
@@ -162,8 +148,6 @@ public partial class PadPage : ContentPage
 
     private void OnDropCompleted(object? sender, DropCompletedEventArgs e)
     {
-        _viewModel.AddDebugLog($"拖动完成");
-
         if (sender is VisualElement visual)
         {
             visual.Opacity = 1.0;
@@ -184,16 +168,12 @@ public partial class PadPage : ContentPage
                 {
                     visual.BackgroundColor = Color.FromRgba(0, 120, 212, 0.1);
                 }
-
-                _viewModel.AddDebugLog($"拖动经过: {targetItem.FileName}");
             }
         }
     }
 
     private async void OnCardDrop(object? sender, DropEventArgs e)
     {
-        _viewModel.AddDebugLog($"Drop事件触发: _draggedItem={_draggedItem?.FileName ?? "null"}");
-
         if (sender is VisualElement visual)
         {
             // 恢复背景色
@@ -202,27 +182,18 @@ public partial class PadPage : ContentPage
 
         if (_draggedItem == null)
         {
-            _viewModel.AddDebugLog("Drop取消: _draggedItem为null");
             return;
         }
 
         if (sender is Element element && element.BindingContext is SelectableFileItem targetItem)
         {
-            _viewModel.AddDebugLog($"Drop目标: {targetItem.FileName}");
-
             if (_draggedItem == targetItem)
             {
-                _viewModel.AddDebugLog("Drop取消: 拖动到自己");
                 return;
             }
 
             // 交换位置
-            _viewModel.AddDebugLog("准备调用SwapFilePositionsAsync");
             await _viewModel.SwapFilePositionsAsync(_draggedItem, targetItem);
-        }
-        else
-        {
-            _viewModel.AddDebugLog("Drop取消: 无法获取目标元素或BindingContext");
         }
 
         _draggedItem = null;
@@ -237,53 +208,37 @@ public partial class PadPage : ContentPage
         // 检查是否是内部拖动
         if (FileDragDropBehavior.CurrentDraggedItem != null)
         {
-            _viewModel.AddDebugLog($"OnFileDragOver触发 (内部拖动)");
             e.AcceptedOperation = DataPackageOperation.Copy;
         }
         else
         {
-            _viewModel.AddDebugLog($"OnFileDragOver触发 (外部文件)");
             e.AcceptedOperation = DataPackageOperation.Copy;
         }
     }
 
     private async void OnFileDrop(object? sender, DropEventArgs e)
     {
-        _viewModel.AddDebugLog($"OnFileDrop触发, sender={sender?.GetType().Name}");
-
         var properties = e.Data?.Properties;
         if (properties == null)
         {
-            _viewModel.AddDebugLog("OnFileDrop: properties为null");
             return;
         }
-
-        _viewModel.AddDebugLog($"OnFileDrop: properties包含 {properties.Count} 项");
 
         // 检查是否是内部拖动（通过静态变量）
         if (FileDragDropBehavior.CurrentDraggedItem != null)
         {
-            _viewModel.AddDebugLog($"检测到内部拖动: {FileDragDropBehavior.CurrentDraggedItem.FileName}");
-
             // 计算目标网格位置（X,Y坐标）
             var (targetX, targetY) = CalculateDropTargetPosition(e);
             var draggedItem = FileDragDropBehavior.CurrentDraggedItem;
-
-            _viewModel.AddDebugLog($"拖放目标: Position=({targetX},{targetY})");
 
             if (targetX >= 0 && targetY >= 0)
             {
                 // 直接更新到服务器的新坐标
                 await _viewModel.UpdateFilePositionAsync(draggedItem.Id, targetX, targetY);
-                _viewModel.AddDebugLog($"文件已移动: {draggedItem.FileName} -> ({targetX},{targetY})");
 
                 // 刷新文件列表
                 await Task.Delay(300);
                 await _viewModel.RefreshFilesAsync();
-            }
-            else
-            {
-                _viewModel.AddDebugLog($"目标位置无效: ({targetX},{targetY})");
             }
 
             // 清除拖动状态
@@ -320,7 +275,6 @@ public partial class PadPage : ContentPage
         if (column >= columns) column = columns - 1;
         if (row < 0) row = 0;
 
-        _viewModel.AddDebugLog($"坐标转换: ({x:F1},{y:F1}) -> 网格({column},{row})");
         return (column, row);
     }
 
@@ -335,7 +289,6 @@ public partial class PadPage : ContentPage
             var gridView = FileGridView;
             if (gridView == null)
             {
-                _viewModel.AddDebugLog("FileGridView 为 null");
                 return (-1, -1);
             }
 
@@ -343,11 +296,8 @@ public partial class PadPage : ContentPage
             var dropPoint = e.GetPosition(gridView);
             if (dropPoint == null)
             {
-                _viewModel.AddDebugLog("无法获取 Drop 位置");
                 return (-1, -1);
             }
-
-            _viewModel.AddDebugLog($"Drop 位置: X={dropPoint.Value.X:F1}, Y={dropPoint.Value.Y:F1}");
 
             // 网格布局：4 列
             const int columns = 4;
@@ -365,13 +315,11 @@ public partial class PadPage : ContentPage
             if (column >= columns) column = columns - 1;
             if (row < 0) row = 0;
 
-            _viewModel.AddDebugLog($"计算结果: X={column}, Y={row}");
-
             return (column, row);
         }
         catch (Exception ex)
         {
-            _viewModel.AddDebugLog($"计算目标位置失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"计算目标位置失败: {ex.Message}");
             return (-1, -1);
         }
     }
@@ -467,80 +415,6 @@ public partial class PadPage : ContentPage
             _isShiftPressed = false;
     }
 #endif
-
-    #endregion
-
-    #region 手动移动文件（调试用）
-
-    private async void OnManualMoveFile(object? sender, EventArgs e)
-    {
-        try
-        {
-            // 获取输入的目标位置
-            if (!int.TryParse(TargetPositionEntry.Text, out int targetIndex))
-            {
-                _viewModel.AddDebugLog("请输入有效的数字索引");
-                return;
-            }
-
-            // 获取选中的文件
-            var selectedFile = _viewModel.Files.FirstOrDefault(f => f.IsSelected);
-            if (selectedFile == null)
-            {
-                _viewModel.AddDebugLog("请先选择一个文件");
-                return;
-            }
-
-            var currentIndex = _viewModel.Files.IndexOf(selectedFile);
-
-            _viewModel.AddDebugLog($"手动移动: {selectedFile.FileName}");
-            _viewModel.AddDebugLog($"  当前索引: {currentIndex}");
-            _viewModel.AddDebugLog($"  目标索引: {targetIndex}");
-
-            // 验证目标索引
-            if (targetIndex < 0)
-            {
-                _viewModel.AddDebugLog($"  错误: 目标索引不能为负数");
-                return;
-            }
-
-            if (currentIndex == targetIndex)
-            {
-                _viewModel.AddDebugLog("  无需移动: 已在目标位置");
-                return;
-            }
-
-            // 如果目标索引在现有范围内，执行本地移动
-            if (targetIndex < _viewModel.Files.Count)
-            {
-                _viewModel.Files.Move(currentIndex, targetIndex);
-                _viewModel.AddDebugLog($"  本地移动完成: {currentIndex} -> {targetIndex}");
-            }
-            else
-            {
-                // 目标索引超出范围，只更新服务器，不更新本地 UI
-                _viewModel.AddDebugLog($"  目标索引超出当前范围 ({_viewModel.Files.Count})，仅更新服务器");
-            }
-
-            // 更新服务器（无论目标索引是否超出范围）
-            await _viewModel.UpdateFilePositionAsync(selectedFile.Id, targetIndex, 0);
-            _viewModel.AddDebugLog($"  服务器更新完成");
-
-            // 刷新文件列表以查看最终结果
-            _viewModel.AddDebugLog($"  正在刷新文件列表...");
-            await Task.Delay(500); // 等待服务器处理
-
-            // 触发刷新
-            await _viewModel.RefreshFilesAsync();
-
-            // 清空输入框
-            TargetPositionEntry.Text = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            _viewModel.AddDebugLog($"手动移动失败: {ex.Message}");
-        }
-    }
 
     #endregion
 }

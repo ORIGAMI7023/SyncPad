@@ -20,10 +20,6 @@ public class PadViewModel : BaseViewModel, IDisposable
     private CancellationTokenSource? _throttleCts;
     private readonly object _throttleLock = new();
 
-    // 日志输出
-    private string _debugLog = string.Empty;
-    private readonly object _logLock = new();
-
     public string Content
     {
         get => _content;
@@ -50,12 +46,6 @@ public class PadViewModel : BaseViewModel, IDisposable
     }
 
     public string Username => _authManager.Username ?? "未知用户";
-
-    public string DebugLog
-    {
-        get => _debugLog;
-        set => SetProperty(ref _debugLog, value);
-    }
 
     // 文件列表
     private ObservableCollection<SelectableFileItem> _files = [];
@@ -91,7 +81,6 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand BatchDownloadCommand { get; }
     public ICommand BatchDeleteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
-    public ICommand ClearLogCommand { get; }
 
     // 属性变更通知辅助方法
     public void NotifySelectionChanged()
@@ -112,40 +101,6 @@ public class PadViewModel : BaseViewModel, IDisposable
             file.IsSelected = false;
         }
         NotifySelectionChanged();
-    }
-
-    /// <summary>
-    /// 添加调试日志
-    /// </summary>
-    public void AddDebugLog(string message)
-    {
-        lock (_logLock)
-        {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-            var logEntry = $"[{timestamp}] {message}";
-
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                DebugLog += logEntry + Environment.NewLine;
-
-                // 保留最后500行
-                var lines = DebugLog.Split(Environment.NewLine);
-                if (lines.Length > 500)
-                {
-                    DebugLog = string.Join(Environment.NewLine, lines.Skip(lines.Length - 500));
-                }
-            });
-
-            System.Diagnostics.Debug.WriteLine(logEntry);
-        }
-    }
-
-    /// <summary>
-    /// 清除日志
-    /// </summary>
-    public void ClearDebugLog()
-    {
-        DebugLog = string.Empty;
     }
 
     /// <summary>
@@ -180,7 +135,6 @@ public class PadViewModel : BaseViewModel, IDisposable
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
         BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
         ClearSelectionCommand = new Command(ClearSelection);
-        ClearLogCommand = new Command(ClearDebugLog);
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
@@ -191,8 +145,6 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public async Task InitializeAsync()
     {
-        AddDebugLog("开始初始化...");
-
         // 连接 SignalR
         await ConnectToHubAsync();
 
@@ -204,8 +156,6 @@ public class PadViewModel : BaseViewModel, IDisposable
 
         // 自动预载所有远程文件（后台执行，不阻塞 UI）
         _ = Task.Run(async () => await AutoPreloadAllFilesAsync());
-
-        AddDebugLog("初始化完成");
     }
 
     /// <summary>
@@ -333,8 +283,6 @@ public class PadViewModel : BaseViewModel, IDisposable
             var response = await _fileClient.GetFilesAsync();
             if (response.Success && response.Data != null)
             {
-                AddDebugLog($"收到文件列表: {response.Data.Files.Count} 个文件");
-
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     Files.Clear();
@@ -343,8 +291,6 @@ public class PadViewModel : BaseViewModel, IDisposable
                     // 直接添加到集合，FileGridView 会根据 Position(X,Y) 定位每个文件
                     foreach (var file in response.Data.Files)
                     {
-                        AddDebugLog($"文件: {file.FileName}, Position=({file.PositionX},{file.PositionY})");
-
                         var item = new SelectableFileItem(file)
                         {
                             Status = _cacheManager.GetFileStatus(file.Id),
@@ -353,7 +299,6 @@ public class PadViewModel : BaseViewModel, IDisposable
                         Files.Add(item);
                     }
 
-                    AddDebugLog($"文件列表刷新完成，共 {Files.Count} 个文件");
                     OnPropertyChanged(nameof(HasFiles));
                     OnPropertyChanged(nameof(HasNoFiles));
                 });
@@ -361,7 +306,6 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            AddDebugLog($"刷新文件列表失败: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"刷新文件列表失败: {ex.Message}");
         }
     }
@@ -663,7 +607,6 @@ public class PadViewModel : BaseViewModel, IDisposable
             if (file != null)
             {
                 var currentIndex = Files.IndexOf(file);
-                AddDebugLog($"文件位置变更: FileId={fileId}, FileName={file.FileName}, CurrentPosition=({file.PositionX},{file.PositionY}), NewPosition=({positionX},{positionY})");
 
                 // 检查位置是否真的变化了
                 if (file.PositionX != positionX || file.PositionY != positionY)
@@ -692,17 +635,8 @@ public class PadViewModel : BaseViewModel, IDisposable
                     if (currentIndex >= 0)
                     {
                         Files[currentIndex] = updatedItem;
-                        AddDebugLog($"文件位置已更新: ({file.PositionX},{file.PositionY}) -> ({positionX},{positionY})");
                     }
                 }
-                else
-                {
-                    AddDebugLog($"位置未变更: 当前位置=({file.PositionX},{file.PositionY})");
-                }
-            }
-            else
-            {
-                AddDebugLog($"文件未找到: FileId={fileId}");
             }
         });
     }
@@ -719,26 +653,20 @@ public class PadViewModel : BaseViewModel, IDisposable
             var draggedIndex = Files.IndexOf(draggedItem);
             var targetIndex = Files.IndexOf(targetItem);
 
-            AddDebugLog($"拖放操作: DraggedFile={draggedItem.FileName}(Index={draggedIndex}), TargetFile={targetItem.FileName}(Index={targetIndex})");
-
             if (draggedIndex < 0 || targetIndex < 0 || draggedIndex == targetIndex)
             {
-                AddDebugLog($"拖放取消: DraggedIndex={draggedIndex}, TargetIndex={targetIndex}");
                 return;
             }
 
             // 在列表中移动文件
             Files.Move(draggedIndex, targetIndex);
-            AddDebugLog($"本地UI已移动: {draggedIndex} -> {targetIndex}");
 
             // 只通知服务器被拖动文件的新位置
             // 服务器会广播给其他客户端，其他客户端通过 OnFilePositionChanged 更新
             await _textHubClient.UpdateFilePositionAsync(draggedItem.Id, targetIndex, 0);
-            AddDebugLog($"已发送位置更新到服务器: FileId={draggedItem.Id}, Position={targetIndex}");
         }
         catch (Exception ex)
         {
-            AddDebugLog($"移动文件位置失败: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"移动文件位置失败: {ex.Message}");
         }
     }
@@ -751,11 +679,10 @@ public class PadViewModel : BaseViewModel, IDisposable
         try
         {
             await _textHubClient.UpdateFilePositionAsync(fileId, positionX, positionY);
-            AddDebugLog($"已发送位置更新: FileId={fileId}, Position=({positionX},{positionY})");
         }
         catch (Exception ex)
         {
-            AddDebugLog($"更新文件位置失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"更新文件位置失败: {ex.Message}");
         }
     }
 

@@ -13,16 +13,6 @@
         <!-- 使用 OnIdiom 实现响应式布局 -->
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <!-- 中间列：日志输出 (仅桌面端) -->
-            <ColumnDefinition>
-                <ColumnDefinition.Width>
-                    <OnIdiom x:TypeArguments="GridLength">
-                        <OnIdiom.Desktop>300</OnIdiom.Desktop>
-                        <OnIdiom.Tablet>0</OnIdiom.Tablet>
-                        <OnIdiom.Phone>0</OnIdiom.Phone>
-                    </OnIdiom>
-                </ColumnDefinition.Width>
-            </ColumnDefinition>
             <!-- 右侧列：文件区域 -->
             <ColumnDefinition>
                 <ColumnDefinition.Width>
@@ -125,107 +115,8 @@
             </Grid>
         </Grid>
 
-        <!-- 中间日志区域（桌面端） -->
-        <Grid Grid.Column="1" Padding="0">
-            <Grid.BackgroundColor>
-                <AppThemeBinding Light="#F8F9FA" Dark="#252526" />
-            </Grid.BackgroundColor>
-            <Grid.IsVisible>
-                <OnIdiom x:TypeArguments="x:Boolean">
-                    <OnIdiom.Desktop>True</OnIdiom.Desktop>
-                    <OnIdiom.Tablet>False</OnIdiom.Tablet>
-                    <OnIdiom.Phone>False</OnIdiom.Phone>
-                </OnIdiom>
-            </Grid.IsVisible>
-
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <!-- 日志标题栏和调试控件 -->
-            <Grid Grid.Row="0" Padding="10" RowSpacing="5">
-                <Grid.BackgroundColor>
-                    <AppThemeBinding Light="#E9ECEF" Dark="#2B2B2B" />
-                </Grid.BackgroundColor>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- 第一行：标题和清除按钮 -->
-                <Grid Grid.Row="0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Label Grid.Column="0"
-                           Text="调试日志"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           VerticalOptions="Center"/>
-
-                    <Button Grid.Column="1"
-                            Text="清除"
-                            Command="{Binding ClearLogCommand}"
-                            BackgroundColor="#6C757D"
-                            TextColor="White"
-                            CornerRadius="4"
-                            Padding="8,5"
-                            FontSize="12"/>
-                </Grid>
-
-                <!-- 第二行：手动移动文件控件 -->
-                <Grid Grid.Row="1" ColumnSpacing="5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="60"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <Label Grid.Column="0"
-                           Text="移动选中文件到索引:"
-                           FontSize="11"
-                           VerticalOptions="Center"/>
-
-                    <Entry Grid.Column="1"
-                           x:Name="TargetPositionEntry"
-                           Placeholder="0"
-                           Keyboard="Numeric"
-                           FontSize="11"
-                           HeightRequest="30"/>
-
-                    <Button Grid.Column="2"
-                            Text="移动"
-                            Clicked="OnManualMoveFile"
-                            BackgroundColor="#28A745"
-                            TextColor="White"
-                            CornerRadius="4"
-                            Padding="8,3"
-                            FontSize="11"/>
-                </Grid>
-            </Grid>
-
-            <!-- 日志内容 -->
-            <ScrollView Grid.Row="1" Padding="5">
-                <Editor Text="{Binding DebugLog, Mode=OneWay}"
-                        IsReadOnly="True"
-                        FontFamily="Consolas"
-                        FontSize="11"
-                        VerticalOptions="FillAndExpand">
-                    <Editor.BackgroundColor>
-                        <AppThemeBinding Light="White" Dark="#1E1E1E" />
-                    </Editor.BackgroundColor>
-                    <Editor.TextColor>
-                        <AppThemeBinding Light="#333333" Dark="#D4D4D4" />
-                    </Editor.TextColor>
-                </Editor>
-            </ScrollView>
-        </Grid>
-
         <!-- 右侧文件区域（桌面端） -->
-        <Grid Grid.Column="2" Padding="0">
+        <Grid Grid.Column="1" Padding="0">
             <Grid.BackgroundColor>
                 <AppThemeBinding Light="White" Dark="#1E1E1E" />
             </Grid.BackgroundColor>

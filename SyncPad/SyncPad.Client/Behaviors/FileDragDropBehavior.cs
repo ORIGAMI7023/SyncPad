@@ -74,8 +74,6 @@ public class FileDragDropBehavior : Behavior<View>
             e.AcceptedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
             e.DragUIOverride.Caption = "移动到此位置";
             e.Handled = true;
-
-            viewModel.AddDebugLog($"原生DragOver: 拖动={_currentDraggedItem.FileName}, 目标={targetItem.FileName}");
         }
     }
 
@@ -89,22 +87,14 @@ public class FileDragDropBehavior : Behavior<View>
         var targetItem = _associatedObject?.BindingContext as SelectableFileItem;
         if (targetItem == null)
         {
-            viewModel.AddDebugLog("原生Drop: targetItem为null");
             return;
         }
-
-        viewModel.AddDebugLog($"原生Drop触发: 目标={targetItem.FileName}");
 
         // 检查是否是内部拖动
         if (_currentDraggedItem != null && _currentDraggedItem != targetItem)
         {
-            viewModel.AddDebugLog($"原生Drop执行: 拖动={_currentDraggedItem.FileName}, 目标={targetItem.FileName}");
             await viewModel.SwapFilePositionsAsync(_currentDraggedItem, targetItem);
             e.Handled = true;
-        }
-        else
-        {
-            viewModel.AddDebugLog($"原生Drop取消: _currentDraggedItem={_currentDraggedItem?.FileName ?? "null"}");
         }
 
         // 清除拖动状态
@@ -123,8 +113,6 @@ public class FileDragDropBehavior : Behavior<View>
 
         // 设置当前拖动的文件
         _currentDraggedItem = fileItem;
-
-        viewModel.AddDebugLog($"原生DragStarting: {fileItem.FileName}, Id={fileItem.Id}");
 
         // 设置拖动数据标记，表示这是一个内部拖动
         args.Data.SetText($"SyncPad-Internal-Drag-{fileItem.Id}");
@@ -151,11 +139,10 @@ public class FileDragDropBehavior : Behavior<View>
                 {
                     var storageFile = await Windows.Storage.StorageFile.GetFileFromPathAsync(cachedFilePath);
                     args.Data.SetStorageItems(new[] { storageFile });
-                    viewModel.AddDebugLog($"文件已缓存，支持拖出到系统: {cachedFilePath}");
                 }
-                catch (Exception ex)
+                catch
                 {
-                    viewModel.AddDebugLog($"设置拖出失败: {ex.Message}");
+                    // 设置拖出失败，忽略错误
                 }
             }
         }
