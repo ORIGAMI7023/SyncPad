@@ -26,18 +26,14 @@ public static class DragDropHandler
 
                 uiElement.DragOver += (sender, args) =>
                 {
-                    // 检查是否是内部拖动
-                    bool isInternalDrag = args.DataView.Contains(WinDataTransfer.StandardDataFormats.Text);
+                    // 简化判断：如果包含 Text 数据，就认为是内部拖动
+                    // 因为只有内部拖动才会通过 FileDragDropBehavior 设置 Text 数据
+                    // 外部文件拖入只包含 StorageItems，不包含 Text
+                    bool hasTextData = args.DataView.Contains(WinDataTransfer.StandardDataFormats.Text);
+                    bool hasStorageItems = args.DataView.Contains(WinDataTransfer.StandardDataFormats.StorageItems);
 
-                    // 外部文件拖入
-                    if (args.DataView.Contains(WinDataTransfer.StandardDataFormats.StorageItems))
-                    {
-                        args.AcceptedOperation = WinDataTransfer.DataPackageOperation.Copy;
-                        args.DragUIOverride.Caption = "上传文件";
-                        onDragLeave?.Invoke();
-                    }
-                    // 内部拖动
-                    else if (isInternalDrag)
+                    // 内部拖动优先处理（有 Text 数据表示是我们的内部拖动）
+                    if (hasTextData)
                     {
                         args.AcceptedOperation = WinDataTransfer.DataPackageOperation.Move;
                         args.DragUIOverride.Caption = "移动到此位置";
@@ -45,6 +41,13 @@ public static class DragDropHandler
                         // 通知位置变化（显示指示器）
                         var position = args.GetPosition(sender as UIElement);
                         onDragOver?.Invoke(position.X, position.Y);
+                    }
+                    // 纯外部文件拖入（只有 StorageItems，没有 Text）
+                    else if (hasStorageItems)
+                    {
+                        args.AcceptedOperation = WinDataTransfer.DataPackageOperation.Copy;
+                        args.DragUIOverride.Caption = "上传文件";
+                        onDragLeave?.Invoke();
                     }
 
                     args.Handled = true;
