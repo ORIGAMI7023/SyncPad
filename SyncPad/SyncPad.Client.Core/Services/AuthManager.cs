@@ -12,7 +12,7 @@ public class AuthManager : IAuthManager
 
     // 服务器地址（根据编译配置切换）
 #if DEBUG
-    private readonly string _baseUrl = "https://localhost:7167";
+    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
 #else
     private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
 #endif

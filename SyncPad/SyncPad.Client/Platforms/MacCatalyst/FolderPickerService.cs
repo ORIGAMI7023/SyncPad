@@ -1,5 +1,6 @@
 using Foundation;
-using AppKit;
+using UIKit;
+using UniformTypeIdentifiers;
 
 namespace SyncPad.Client.Platforms.MacCatalyst;
 
@@ -20,19 +21,39 @@ public static class FolderPickerService
         {
             try
             {
-                var openPanel = NSOpenPanel.OpenPanel;
-                openPanel.CanChooseFiles = false;
-                openPanel.CanChooseDirectories = true;
-                openPanel.AllowsMultipleSelection = false;
-                openPanel.Title = "选择导出文件夹";
-                openPanel.Prompt = "选择";
+                // Mac Catalyst 使用 UIDocumentPickerViewController
+                var picker = new UIDocumentPickerViewController(
+                    new[] { UTTypes.Folder },
+                    asCopy: false);
 
-                var result = openPanel.RunModal();
+                picker.AllowsMultipleSelection = false;
+                picker.ShouldShowFileExtensions = true;
 
-                if (result == 1 && openPanel.Urls.Length > 0)
+                picker.DidPickDocumentAtUrls += (sender, e) =>
                 {
-                    var url = openPanel.Urls[0];
-                    tcs.SetResult(url.Path);
+                    if (e.Urls?.Length > 0)
+                    {
+                        var url = e.Urls[0];
+                        // 请求访问权限
+                        url.StartAccessingSecurityScopedResource();
+                        tcs.SetResult(url.Path);
+                    }
+                    else
+                    {
+                        tcs.SetResult(null);
+                    }
+                };
+
+                picker.WasCancelled += (sender, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                // 获取当前的 ViewController
+                var viewController = Platform.GetCurrentUIViewController();
+                if (viewController != null)
+                {
+                    viewController.PresentViewController(picker, true, null);
                 }
                 else
                 {
