@@ -39,6 +39,12 @@
 
 		<!-- Disable AOT for Android Release builds to avoid compilation issues -->
 		<RunAOTCompilation Condition="'$(TargetFramework)' == 'net10.0-android' and '$(Configuration)' == 'Release'">false</RunAOTCompilation>
+
+		<!-- Mac Catalyst Entitlements -->
+		<CodesignEntitlements Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">Platforms\MacCatalyst\Entitlements.plist</CodesignEntitlements>
+
+		<!-- Mac Catalyst 代码签名配置（开发模式） -->
+		<EnableCodeSigning Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">false</EnableCodeSigning>
 	</PropertyGroup>
 
 	<ItemGroup>

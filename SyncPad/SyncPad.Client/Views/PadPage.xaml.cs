@@ -5,6 +5,9 @@ using SyncPad.Shared.Models;
 using SyncPad.Client.Platforms.Windows;
 using Windows.Storage;
 #endif
+#if MACCATALYST
+using SyncPad.Client.Platforms.MacCatalyst;
+#endif
 
 namespace SyncPad.Client.Views;
 
@@ -29,6 +32,11 @@ public partial class PadPage : ContentPage
 #if WINDOWS
         // 设置 Windows 拖放支持
         SetupWindowsDragDrop();
+#endif
+
+#if MACCATALYST
+        // 设置 Mac 拖放支持
+        SetupMacDragDrop();
 #endif
     }
 
@@ -120,10 +128,83 @@ public partial class PadPage : ContentPage
     }
 #endif
 
+#if MACCATALYST
+    private void SetupMacDragDrop()
+    {
+        // 为文件区域设置拖入支持（从 Finder 拖入文件）
+        DragDropHandler.SetupDropTarget(
+            FileGridView,
+            onFilesDropped: async (filePaths) =>
+            {
+                foreach (var filePath in filePaths)
+                {
+                    await UploadFileFromPathAsync(filePath);
+                }
+            }
+        );
+    }
+
+    private async Task UploadFileFromPathAsync(string filePath)
+    {
+        try
+        {
+            var fileName = Path.GetFileName(filePath);
+            var contentType = GetMimeType(filePath);
+
+            // 检查是否存在同名文件
+            bool exists = await _viewModel.FileExistsAsync(fileName);
+
+            if (exists)
+            {
+                var confirm = await DisplayAlert("文件已存在",
+                    $"文件 \"{fileName}\" 已存在，是否覆盖？",
+                    "覆盖", "取消");
+                if (!confirm)
+                    return;
+            }
+
+            using var stream = File.OpenRead(filePath);
+            await _viewModel.UploadFileAsync(fileName, stream, contentType, exists);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
+        }
+    }
+
+    private static string GetMimeType(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        return ext switch
+        {
+            ".txt" => "text/plain",
+            ".pdf" => "application/pdf",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".mp4" => "video/mp4",
+            ".mp3" => "audio/mpeg",
+            ".zip" => "application/zip",
+            ".json" => "application/json",
+            ".xml" => "application/xml",
+            ".html" or ".htm" => "text/html",
+            ".css" => "text/css",
+            ".js" => "application/javascript",
+            _ => "application/octet-stream"
+        };
+    }
+#endif
+
     #region 内部文件拖放排序
 
     private void OnDragStarting(object? sender, DragStartingEventArgs e)
     {
+#if MACCATALYST
+        // Mac 端禁用内部拖动排序
+        e.Cancel = true;
+        return;
+#endif
+
         if (sender is VisualElement visual && visual.BindingContext is SelectableFileItem item)
         {
             _draggedItem = item;
@@ -148,6 +229,10 @@ public partial class PadPage : ContentPage
 
     private void OnDropCompleted(object? sender, DropCompletedEventArgs e)
     {
+#if MACCATALYST
+        return;
+#endif
+
         if (sender is VisualElement visual)
         {
             visual.Opacity = 1.0;
@@ -157,6 +242,11 @@ public partial class PadPage : ContentPage
 
     private void OnCardDragOver(object? sender, DragEventArgs e)
     {
+#if MACCATALYST
+        // Mac 端禁用内部拖动排序
+        return;
+#endif
+
         if (sender is Element element && element.BindingContext is SelectableFileItem targetItem)
         {
             // 如果是内部拖动且不是拖动到自己
@@ -174,6 +264,11 @@ public partial class PadPage : ContentPage
 
     private async void OnCardDrop(object? sender, DropEventArgs e)
     {
+#if MACCATALYST
+        // Mac 端禁用内部拖动排序
+        return;
+#endif
+
         if (sender is VisualElement visual)
         {
             // 恢复背景色
