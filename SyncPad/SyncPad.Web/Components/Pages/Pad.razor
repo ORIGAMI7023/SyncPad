@@ -51,16 +51,9 @@
         </div>
 
         <!-- 文件网格 -->
-        <div class="file-grid @(_isDraggingExternal ? "drag-over" : "")"
+        <div class="file-grid"
              @ref="_fileGridRef"
-             @onclick="OnFileGridClick"
-             @ondragenter:preventDefault="true"
-             @ondragenter="OnExternalDragEnter"
-             @ondragleave:preventDefault="true"
-             @ondragleave="OnExternalDragLeave"
-             @ondragover:preventDefault="true"
-             @ondrop:preventDefault="true"
-             @ondrop="OnGridDrop">
+             @onclick="OnFileGridClick">
             @if (_files.Count == 0)
             {
                 <div class="empty-state">暂无文件</div>
@@ -69,17 +62,13 @@
             {
                 @foreach (var file in _files)
                 {
-                    var downloadUrl = FileClient.GetDownloadUrl(file.File.Id);
                     <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "") @(_dropTarget == file ? "drop-target" : "")"
                          draggable="true"
-                         data-file-id="@file.File.Id"
-                         data-download-url="@downloadUrl"
-                         data-file-name="@file.File.FileName"
                          @ondragstart="(e) => OnDragStart(e, file)"
                          @ondragenter="(e) => OnCardDragEnter(e, file)"
+                         @ondragenter:preventDefault="true"
                          @ondragover:preventDefault="true"
                          @ondrop:preventDefault="true"
-                         @ondrop:stopPropagation="true"
                          @ondrop="(e) => OnCardDrop(e, file)"
                          @ondragend="OnDragEnd"
                          @onclick="(e) => HandleFileClick(e, file)"
@@ -291,12 +280,6 @@
         transition: background-color 0.2s;
     }
 
-    .file-grid.drag-over {
-        background-color: rgba(0, 123, 255, 0.05);
-        outline: 2px dashed rgba(0, 123, 255, 0.4);
-        outline-offset: -10px;
-    }
-
     .empty-state {
         grid-column: 1 / -1;
         text-align: center;
@@ -344,9 +327,8 @@
     }
 
     .file-card.drop-target {
-        background-color: rgba(0, 120, 212, 0.15);
-        border-color: rgba(0, 120, 212, 0.5);
-        border-style: dashed;
+        background-color: rgba(0, 120, 212, 0.12);
+        border-color: rgba(0, 120, 212, 0.4);
     }
 
     .file-icon-container {
@@ -466,8 +448,6 @@
     // 拖放状态
     private SelectableFileItemWeb? _draggedFile = null;
     private SelectableFileItemWeb? _dropTarget = null;
-    private bool _isDraggingExternal = false;
-    private bool _isInternalDrag = false;
     private ElementReference _fileGridRef;
     private DotNetObjectReference<Pad>? _dotNetRef;
 
@@ -775,15 +755,14 @@
     private void OnDragStart(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb file)
     {
         _draggedFile = file;
-        _isInternalDrag = true;
         _dropTarget = null;
         StateHasChanged();
     }
 
     private void OnCardDragEnter(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
     {
-        // 只在内部拖动时高亮目标
-        if (_isInternalDrag && _draggedFile != null && _draggedFile != targetFile)
+        // 高亮放置目标
+        if (_draggedFile != null && _draggedFile != targetFile)
         {
             _dropTarget = targetFile;
             StateHasChanged();
@@ -796,7 +775,6 @@
 
         if (_draggedFile == null || _draggedFile == targetFile)
         {
-            _isInternalDrag = false;
             return;
         }
 
@@ -809,14 +787,12 @@
             // 在列表中交换位置
             (_files[draggedIndex], _files[targetIndex]) = (_files[targetIndex], _files[draggedIndex]);
 
-            // 通知服务器更新位置（可选：如果需要持久化位置）
-            // 这里使用列表索引作为位置
+            // 通知服务器更新位置
             await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, targetIndex, 0);
             await TextHubClient.UpdateFilePositionAsync(targetFile.File.Id, draggedIndex, 0);
         }
 
         _draggedFile = null;
-        _isInternalDrag = false;
         StateHasChanged();
     }
 
@@ -824,41 +800,6 @@
     {
         _draggedFile = null;
         _dropTarget = null;
-        _isInternalDrag = false;
-        StateHasChanged();
-    }
-
-    // 网格拖放事件（用于外部文件拖入）
-    private void OnExternalDragEnter()
-    {
-        if (!_isInternalDrag)
-        {
-            _isDraggingExternal = true;
-            StateHasChanged();
-        }
-    }
-
-    private void OnExternalDragLeave()
-    {
-        _isDraggingExternal = false;
-        StateHasChanged();
-    }
-
-    private async Task OnGridDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
-    {
-        _isDraggingExternal = false;
-        _dropTarget = null;
-
-        // 如果是内部拖动到空白处，取消拖动
-        if (_isInternalDrag)
-        {
-            _draggedFile = null;
-            _isInternalDrag = false;
-            StateHasChanged();
-            return;
-        }
-
-        // 外部文件拖入由 JS 互操作处理
         StateHasChanged();
     }
 

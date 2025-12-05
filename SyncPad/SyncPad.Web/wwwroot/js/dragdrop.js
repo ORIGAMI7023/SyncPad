@@ -5,12 +5,21 @@ window.DragDropInterop = {
     initDropZone: function (element, dotNetRef) {
         if (!element) return;
 
-        element.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
+        // 阻止默认行为以允许拖放
+        element.addEventListener('dragover', (e) => {
+            // 检查是否是外部文件（非内部拖动）
+            if (e.dataTransfer?.types?.includes('Files')) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
 
+        element.addEventListener('drop', async (e) => {
             const files = e.dataTransfer?.files;
             if (files && files.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
+
                 // 获取文件信息并通知 Blazor
                 const fileInfos = [];
                 for (let i = 0; i < files.length; i++) {
@@ -22,49 +31,14 @@ window.DragDropInterop = {
                     });
                 }
 
-                // 将文件暂存以供后续读取
+                // 将文件暂存���供后续读取
                 window._droppedFiles = files;
 
-                await dotNetRef.invokeMethodAsync('OnFilesDropped', fileInfos);
-            }
-        });
-
-        element.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-
-        // 初始化所有文件卡片的拖出功能
-        DragDropInterop.initAllFileDragOut(element);
-
-        // 监听 DOM 变化，为新添加的文件卡片添加拖出功能
-        const observer = new MutationObserver(() => {
-            DragDropInterop.initAllFileDragOut(element);
-        });
-        observer.observe(element, { childList: true, subtree: true });
-    },
-
-    // 初始化所有文件卡片的拖出功能
-    initAllFileDragOut: function (container) {
-        if (!container) return;
-
-        const cards = container.querySelectorAll('.file-card[data-download-url]');
-        cards.forEach(card => {
-            if (card._dragOutInitialized) return;
-            card._dragOutInitialized = true;
-
-            const downloadUrl = card.getAttribute('data-download-url');
-            const fileName = card.getAttribute('data-file-name');
-
-            if (downloadUrl && fileName) {
-                card.addEventListener('dragstart', (e) => {
-                    // 设置下载链接，允许拖到系统文件管理器
-                    // 格式: "mime-type:filename:url"
-                    e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${window.location.origin}${downloadUrl}`);
-                    e.dataTransfer.setData('text/uri-list', window.location.origin + downloadUrl);
-                    e.dataTransfer.setData('text/plain', fileName);
-                    e.dataTransfer.effectAllowed = 'copyMove';
-                });
+                try {
+                    await dotNetRef.invokeMethodAsync('OnFilesDropped', fileInfos);
+                } catch (err) {
+                    console.error('调用 OnFilesDropped 失败:', err);
+                }
             }
         });
     },
@@ -95,34 +69,5 @@ window.DragDropInterop = {
     // 清理暂存的文件
     clearDroppedFiles: function () {
         window._droppedFiles = null;
-    },
-
-    // 设置拖动时的数据（用于拖出到系统）
-    setDragData: function (element, downloadUrl, fileName) {
-        if (!element) return;
-
-        element.addEventListener('dragstart', (e) => {
-            // 设置下载链接，允许拖到系统文件管理器
-            e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${downloadUrl}`);
-            e.dataTransfer.setData('text/uri-list', downloadUrl);
-            e.dataTransfer.effectAllowed = 'copyMove';
-        });
-    },
-
-    // 初始化文件卡片的拖出功能
-    initFileDragOut: function (element, downloadUrl, fileName) {
-        if (!element) return;
-
-        // 确保不会重复添加事件
-        if (element._dragOutInitialized) return;
-        element._dragOutInitialized = true;
-
-        element.addEventListener('dragstart', (e) => {
-            // 设置下载链接数据
-            if (downloadUrl && fileName) {
-                e.dataTransfer.setData('DownloadURL', `application/octet-stream:${fileName}:${downloadUrl}`);
-                e.dataTransfer.setData('text/uri-list', downloadUrl);
-            }
-        });
     }
 };
