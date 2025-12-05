@@ -50,10 +50,15 @@
             </label>
         </div>
 
-        <!-- 文件网格 -->
+        <!-- 文件网格（绝对定位布局） -->
         <div class="file-grid"
              @ref="_fileGridRef"
-             @onclick="OnFileGridClick">
+             @onclick="OnFileGridClick"
+             @ondragover="OnGridDragOver"
+             @ondragover:preventDefault="true"
+             @ondrop="OnGridDrop"
+             @ondrop:preventDefault="true"
+             @ondragleave="OnGridDragLeave">
             @if (_files.Count == 0)
             {
                 <div class="empty-state">暂无文件</div>
@@ -62,14 +67,10 @@
             {
                 @foreach (var file in _files)
                 {
-                    <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "") @(_dropTarget == file ? "drop-target" : "")"
+                    <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "")"
+                         style="left: @(file.File.PositionX * 122 + 10)px; top: @(file.File.PositionY * 122 + 10)px;"
                          draggable="true"
                          @ondragstart="(e) => OnDragStart(e, file)"
-                         @ondragenter="(e) => OnCardDragEnter(e, file)"
-                         @ondragenter:preventDefault="true"
-                         @ondragover:preventDefault="true"
-                         @ondrop:preventDefault="true"
-                         @ondrop="(e) => OnCardDrop(e, file)"
                          @ondragend="OnDragEnd"
                          @onclick="(e) => HandleFileClick(e, file)"
                          @onclick:stopPropagation="true"
@@ -91,6 +92,12 @@
                         }
                     </div>
                 }
+            }
+
+            <!-- 拖放位置指示器 -->
+            @if (_showDropIndicator)
+            {
+                <div class="drop-indicator" style="left: @(_dropIndicatorX)px; top: @(_dropIndicatorY)px;"></div>
             }
         </div>
 
@@ -273,10 +280,8 @@
         flex: 1;
         overflow-y: auto;
         padding: 10px;
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 4px;
-        align-content: start;
+        position: relative;
+        min-height: 0;
         transition: background-color 0.2s;
     }
 
@@ -289,6 +294,9 @@
     }
 
     .file-card {
+        position: absolute;
+        width: 120px;
+        height: 120px;
         background-color: transparent;
         border: 1px solid transparent;
         border-radius: 4px;
@@ -298,8 +306,6 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        min-width: 0;
-        width: 100%;
         box-sizing: border-box;
         user-select: none;
         -webkit-user-select: none;
@@ -326,9 +332,16 @@
         opacity: 0.4;
     }
 
-    .file-card.drop-target {
-        background-color: rgba(0, 120, 212, 0.12);
-        border-color: rgba(0, 120, 212, 0.4);
+    /* 拖放位置指示器 */
+    .drop-indicator {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        background-color: rgba(30, 144, 255, 0.3);
+        border: 2px solid rgb(30, 144, 255);
+        border-radius: 4px;
+        pointer-events: none;
+        z-index: 1000;
     }
 
     .file-icon-container {
@@ -447,9 +460,17 @@
 
     // 拖放状态
     private SelectableFileItemWeb? _draggedFile = null;
-    private SelectableFileItemWeb? _dropTarget = null;
     private ElementReference _fileGridRef;
     private DotNetObjectReference<Pad>? _dotNetRef;
+
+    // 网格拖放指示器
+    private bool _showDropIndicator = false;
+    private int _dropIndicatorX = 0;
+    private int _dropIndicatorY = 0;
+    private const int CellWidth = 120;
+    private const int CellHeight = 120;
+    private const int CellSpacing = 2;
+    private const int GridPadding = 10;
 
     protected override void OnInitialized()
     {
@@ -755,52 +776,106 @@
     private void OnDragStart(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb file)
     {
         _draggedFile = file;
-        _dropTarget = null;
         StateHasChanged();
     }
 
-    private void OnCardDragEnter(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    private void OnGridDragOver(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
     {
-        // 高亮放置目标
-        if (_draggedFile != null && _draggedFile != targetFile)
+        try
         {
-            _dropTarget = targetFile;
+            if (_draggedFile == null)
+                return;
+
+            // 计算网格位置
+            var gridPos = CalculateGridPosition(e.OffsetX, e.OffsetY);
+
+            // 更新指示器位置
+            _showDropIndicator = true;
+            _dropIndicatorX = gridPos.X * (CellWidth + CellSpacing) + GridPadding;
+            _dropIndicatorY = gridPos.Y * (CellHeight + CellSpacing) + GridPadding;
             StateHasChanged();
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnGridDragOver 错误: {ex.Message}");
+        }
     }
 
-    private async Task OnCardDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    private void OnGridDragLeave()
     {
-        _dropTarget = null;
-
-        if (_draggedFile == null || _draggedFile == targetFile)
-        {
-            return;
-        }
-
-        // 交换位置：将两个文件的位置互换
-        var draggedIndex = _files.IndexOf(_draggedFile);
-        var targetIndex = _files.IndexOf(targetFile);
-
-        if (draggedIndex >= 0 && targetIndex >= 0)
-        {
-            // 在列表中交换位置
-            (_files[draggedIndex], _files[targetIndex]) = (_files[targetIndex], _files[draggedIndex]);
-
-            // 通知服务器更新位置
-            await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, targetIndex, 0);
-            await TextHubClient.UpdateFilePositionAsync(targetFile.File.Id, draggedIndex, 0);
-        }
-
-        _draggedFile = null;
+        _showDropIndicator = false;
         StateHasChanged();
+    }
+
+    private async Task OnGridDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
+    {
+        _showDropIndicator = false;
+
+        try
+        {
+            if (_draggedFile == null)
+            {
+                Console.WriteLine("OnGridDrop: _draggedFile 为 null");
+                return;
+            }
+
+            Console.WriteLine($"OnGridDrop: 拖放事件触发，OffsetX={e.OffsetX}, OffsetY={e.OffsetY}");
+
+            // 计算目标网格位置
+            var gridPos = CalculateGridPosition(e.OffsetX, e.OffsetY);
+            Console.WriteLine($"OnGridDrop: 计算的网格位置=({gridPos.X}, {gridPos.Y})");
+
+            // 检查 TextHubClient 是否为 null
+            if (TextHubClient == null)
+            {
+                Console.WriteLine("OnGridDrop: TextHubClient 为 null");
+                return;
+            }
+
+            // 更新文件位置
+            await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, gridPos.X, gridPos.Y);
+            Console.WriteLine($"文件 {_draggedFile.File.FileName} 移动到 ({gridPos.X}, {gridPos.Y})");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OnGridDrop 错误: {ex.Message}");
+            Console.WriteLine($"StackTrace: {ex.StackTrace}");
+        }
+        finally
+        {
+            _draggedFile = null;
+            StateHasChanged();
+        }
     }
 
     private void OnDragEnd()
     {
         _draggedFile = null;
-        _dropTarget = null;
+        _showDropIndicator = false;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 计算网格坐标
+    /// </summary>
+    private (int X, int Y) CalculateGridPosition(double offsetX, double offsetY)
+    {
+        const int columns = 4;
+
+        // 减去 padding
+        double x = offsetX - GridPadding;
+        double y = offsetY - GridPadding;
+
+        // 计算网格位置
+        int column = (int)(x / (CellWidth + CellSpacing));
+        int row = (int)(y / (CellHeight + CellSpacing));
+
+        // 限制列范围
+        if (column < 0) column = 0;
+        if (column >= columns) column = columns - 1;
+        if (row < 0) row = 0;
+
+        return (column, row);
     }
 
     // JS 互操作回调：外部文件拖入
