@@ -28,6 +28,11 @@ public interface ITextHubClient
     event Action<List<FileItemDto>>? FileListReceived;
 
     /// <summary>
+    /// 收到文件位置变更事件
+    /// </summary>
+    event Action<int, int, int>? FilePositionChanged; // fileId, positionX, positionY
+
+    /// <summary>
     /// 是否已连接
     /// </summary>
     bool IsConnected { get; }
@@ -56,4 +61,9 @@ public interface ITextHubClient
     /// 请求获取文件列表
     /// </summary>
     Task RequestFileListAsync();
+
+    /// <summary>
+    /// 更新文件位置
+    /// </summary>
+    Task UpdateFilePositionAsync(int fileId, int positionX, int positionY);
 }

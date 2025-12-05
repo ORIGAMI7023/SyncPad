@@ -14,6 +14,7 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
     public event Action<TextSyncMessage>? TextUpdateReceived;
     public event Action<FileSyncMessage>? FileUpdateReceived;
     public event Action<List<FileItemDto>>? FileListReceived;
+    public event Action<int, int, int>? FilePositionChanged;
 
     public bool IsConnected => _hubConnection?.State == HubConnectionState.Connected;
 
@@ -69,6 +70,12 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
             FileListReceived?.Invoke(files);
         });
 
+        // 监听文件位置变更
+        _hubConnection.On<int, int, int>("ReceiveFilePositionChanged", (fileId, positionX, positionY) =>
+        {
+            FilePositionChanged?.Invoke(fileId, positionX, positionY);
+        });
+
         await _hubConnection.StartAsync();
         ConnectionStateChanged?.Invoke(true);
     }
@@ -105,6 +112,14 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
         if (_hubConnection?.State == HubConnectionState.Connected)
         {
             await _hubConnection.InvokeAsync("RequestFileList");
+        }
+    }
+
+    public async Task UpdateFilePositionAsync(int fileId, int positionX, int positionY)
+    {
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            await _hubConnection.InvokeAsync("UpdateFilePosition", fileId, positionX, positionY);
         }
     }
 
