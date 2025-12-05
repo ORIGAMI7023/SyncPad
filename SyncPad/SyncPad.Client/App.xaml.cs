@@ -1,6 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-
-namespace SyncPad.Client
+﻿namespace SyncPad.Client
 {
     public partial class App : Application
     {

@@ -381,6 +381,50 @@ public partial class PadPage : ContentPage
 
     #endregion
 
+    #region 移动端标签页切换
+
+    private void OnTextTabClicked(object? sender, EventArgs e)
+    {
+        if (TextTabContent != null && FileTabContent != null &&
+            TextTabButton != null && FileTabButton != null)
+        {
+            // 切换内容可见性
+            TextTabContent.IsVisible = true;
+            FileTabContent.IsVisible = false;
+
+            // 更新按钮样式 - 文本标签页激活
+            TextTabButton.FontAttributes = FontAttributes.Bold;
+            FileTabButton.FontAttributes = FontAttributes.None;
+
+            // 根据主题更新背景色
+            var isDarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+            TextTabButton.BackgroundColor = isDarkTheme ? Color.FromArgb("#1E1E1E") : Colors.White;
+            FileTabButton.BackgroundColor = isDarkTheme ? Color.FromArgb("#2B2B2B") : Color.FromArgb("#E9ECEF");
+        }
+    }
+
+    private void OnFileTabClicked(object? sender, EventArgs e)
+    {
+        if (TextTabContent != null && FileTabContent != null &&
+            TextTabButton != null && FileTabButton != null)
+        {
+            // 切换内容可见性
+            TextTabContent.IsVisible = false;
+            FileTabContent.IsVisible = true;
+
+            // 更新按钮样式 - 文件标签页激活
+            TextTabButton.FontAttributes = FontAttributes.None;
+            FileTabButton.FontAttributes = FontAttributes.Bold;
+
+            // 根据主题更新背景色
+            var isDarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+            TextTabButton.BackgroundColor = isDarkTheme ? Color.FromArgb("#2B2B2B") : Color.FromArgb("#E9ECEF");
+            FileTabButton.BackgroundColor = isDarkTheme ? Color.FromArgb("#1E1E1E") : Colors.White;
+        }
+    }
+
+    #endregion
+
     // 框选功能待后续实现，MAUI CollectionView 不易获取项目位置
 
     #region 键盘事件（用于检测 Ctrl/Shift）

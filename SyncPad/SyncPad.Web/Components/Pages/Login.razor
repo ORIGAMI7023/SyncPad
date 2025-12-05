@@ -110,11 +110,27 @@
 </style>
 
 @code {
-    private string Username { get; set; } = "admin";
-    private string Password { get; set; } = "123456";
+    private string Username { get; set; } = "";
+    private string Password { get; set; } = "";
     private string _errorMessage = string.Empty;
     private string _status = "就绪";
     private bool _isLoading = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var restored = await AuthManager.TryRestoreSessionAsync();
+
+            if (restored && AuthManager.IsLoggedIn)
+            {
+                _status = "会话已恢复,正在跳转...";
+                StateHasChanged();
+                await Task.Delay(100);
+                Navigation.NavigateTo("/pad");
+            }
+        }
+    }
 
     private async Task HandleLoginClick()
     {

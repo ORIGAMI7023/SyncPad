@@ -7,8 +7,8 @@ public class LoginViewModel : BaseViewModel
 {
     private readonly IAuthManager _authManager;
 
-    private string _username = "admin";
-    private string _password = "123456";
+    private string _username = "";
+    private string _password = "";
     private string _errorMessage = string.Empty;
     private bool _isLoading;
 
@@ -44,6 +44,25 @@ public class LoginViewModel : BaseViewModel
     {
         _authManager = authManager;
         LoginCommand = new Command(async () => await LoginAsync(), () => !IsLoading);
+    }
+
+    public async Task<bool> TryAutoLoginAsync()
+    {
+        try
+        {
+            var restored = await _authManager.TryRestoreSessionAsync();
+            if (restored && _authManager.IsLoggedIn)
+            {
+                LoginSucceeded?.Invoke();
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"自动登录失败: {ex.Message}";
+        }
+
+        return false;
     }
 
     private async Task LoginAsync()

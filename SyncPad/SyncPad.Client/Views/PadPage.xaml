@@ -332,18 +332,57 @@
             </Grid>
         </Grid>
 
-        <!-- 移动端：标签页视图 -->
-        <TabbedPage Grid.ColumnSpan="2">
-            <TabbedPage.IsVisible>
+        <!-- 移动端：自定义标签页视图 -->
+        <Grid Grid.ColumnSpan="2">
+            <Grid.IsVisible>
                 <OnIdiom x:TypeArguments="x:Boolean">
                     <OnIdiom.Desktop>False</OnIdiom.Desktop>
                     <OnIdiom.Tablet>True</OnIdiom.Tablet>
                     <OnIdiom.Phone>True</OnIdiom.Phone>
                 </OnIdiom>
-            </TabbedPage.IsVisible>
+            </Grid.IsVisible>
 
-            <!-- 文本标签页 -->
-            <ContentPage Title="文本">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标签页切换按钮 -->
+            <Grid Grid.Row="0" ColumnSpacing="0">
+                <Grid.BackgroundColor>
+                    <AppThemeBinding Light="#F5F5F5" Dark="#2B2B2B" />
+                </Grid.BackgroundColor>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0"
+                        x:Name="TextTabButton"
+                        Text="文本"
+                        Clicked="OnTextTabClicked"
+                        CornerRadius="0"
+                        BorderWidth="0"
+                        FontAttributes="Bold">
+                    <Button.BackgroundColor>
+                        <AppThemeBinding Light="#FFFFFF" Dark="#1E1E1E" />
+                    </Button.BackgroundColor>
+                </Button>
+
+                <Button Grid.Column="1"
+                        x:Name="FileTabButton"
+                        Text="文件"
+                        Clicked="OnFileTabClicked"
+                        CornerRadius="0"
+                        BorderWidth="0">
+                    <Button.BackgroundColor>
+                        <AppThemeBinding Light="#E9ECEF" Dark="#2B2B2B" />
+                    </Button.BackgroundColor>
+                </Button>
+            </Grid>
+
+            <!-- 文本标签页内容 -->
+            <Grid Grid.Row="1" x:Name="TextTabContent" IsVisible="True">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -425,10 +464,10 @@
                                TextColor="Gray"/>
                     </Grid>
                 </Grid>
-            </ContentPage>
+            </Grid>
 
-            <!-- 文件标签页 -->
-            <ContentPage Title="文件">
+            <!-- 文件标签页内容 -->
+            <Grid Grid.Row="1" x:Name="FileTabContent" IsVisible="False">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -628,8 +667,8 @@
                                 FontSize="12"/>
                     </Grid>
                 </Grid>
-            </ContentPage>
-        </TabbedPage>
+            </Grid>
+        </Grid>
     </Grid>
 
 </ContentPage>
