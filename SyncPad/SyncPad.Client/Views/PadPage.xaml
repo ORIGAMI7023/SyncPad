@@ -173,20 +173,20 @@
                         <CollectionView.ItemsLayout>
                             <GridItemsLayout Orientation="Vertical"
                                            Span="4"
-                                           HorizontalItemSpacing="5"
-                                           VerticalItemSpacing="5"/>
+                                           HorizontalItemSpacing="2"
+                                           VerticalItemSpacing="2"/>
                         </CollectionView.ItemsLayout>
 
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
                                 <!-- 文件项容器 -->
-                                <Frame Padding="8"
-                                       CornerRadius="8"
+                                <Frame Padding="6"
+                                       CornerRadius="4"
                                        HasShadow="False"
                                        BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
-                                       Margin="2">
+                                       Margin="1">
                                     <Frame.BackgroundColor>
-                                        <AppThemeBinding Light="#F8F9FA" Dark="#2C2C2C" />
+                                        <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                     </Frame.BackgroundColor>
 
                                     <Grid RowSpacing="4">
@@ -468,20 +468,20 @@
                                 <CollectionView.ItemsLayout>
                                     <GridItemsLayout Orientation="Vertical"
                                                    Span="2"
-                                                   HorizontalItemSpacing="5"
-                                                   VerticalItemSpacing="5"/>
+                                                   HorizontalItemSpacing="2"
+                                                   VerticalItemSpacing="2"/>
                                 </CollectionView.ItemsLayout>
 
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate>
                                         <!-- 文件项容器 -->
-                                        <Frame Padding="8"
-                                               CornerRadius="8"
+                                        <Frame Padding="6"
+                                               CornerRadius="4"
                                                HasShadow="False"
                                                BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
-                                               Margin="2">
+                                               Margin="1">
                                             <Frame.BackgroundColor>
-                                                <AppThemeBinding Light="#F8F9FA" Dark="#2C2C2C" />
+                                                <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                             </Frame.BackgroundColor>
 
                                             <Grid RowSpacing="4">

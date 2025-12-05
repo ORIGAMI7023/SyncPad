@@ -50,7 +50,13 @@
         </div>
 
         <!-- 文件网格 -->
-        <div class="file-grid">
+        <div class="file-grid @(_isDraggingExternal ? "drag-over" : "")"
+             @ondragenter:preventDefault="true"
+             @ondragenter="OnExternalDragEnter"
+             @ondragleave="OnExternalDragLeave"
+             @ondragover:preventDefault="true"
+             @ondrop:preventDefault="true"
+             @ondrop="OnExternalDrop">
             @if (_files.Count == 0)
             {
                 <div class="empty-state">暂无文件</div>
@@ -59,7 +65,15 @@
             {
                 @foreach (var file in _files)
                 {
-                    <div class="file-card @(file.IsSelected ? "selected" : "")" @onclick="() => PreloadFile(file)" @ondblclick="() => DownloadFile(file)">
+                    <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "")"
+                         draggable="true"
+                         @ondragstart="(e) => OnDragStart(e, file)"
+                         @ondragover:preventDefault="true"
+                         @ondragover="(e) => OnDragOver(e, file)"
+                         @ondrop="(e) => OnDrop(e, file)"
+                         @ondragend="OnDragEnd"
+                         @onclick="(e) => HandleFileClick(e, file)"
+                         @ondblclick="() => DownloadFile(file)">
                         <div class="file-icon-container">
                             <div class="file-icon">@file.FileIcon</div>
                             @if (!string.IsNullOrEmpty(file.StatusBadge))
@@ -265,8 +279,15 @@
         padding: 10px;
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
+        gap: 4px;
         align-content: start;
+        transition: background-color 0.2s;
+    }
+
+    .file-grid.drag-over {
+        background-color: rgba(0, 123, 255, 0.05);
+        outline: 2px dashed rgba(0, 123, 255, 0.4);
+        outline-offset: -10px;
     }
 
     .empty-state {
@@ -278,24 +299,41 @@
     }
 
     .file-card {
-        background-color: #f8f9fa;
-        border: 2px solid transparent;
-        border-radius: 8px;
-        padding: 12px;
+        background-color: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 8px;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.15s;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
+        min-width: 0;
+        width: 100%;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
     }
 
     .file-card:hover {
-        background-color: #e9ecef;
+        background-color: rgba(0, 0, 0, 0.03);
+        border-color: rgba(0, 0, 0, 0.1);
     }
 
     .file-card.selected {
-        border-color: #007bff;
-        background-color: #e7f3ff;
+        background-color: rgba(0, 123, 255, 0.15);
+        border-color: rgba(0, 123, 255, 0.4);
+    }
+
+    .file-card.selected:hover {
+        background-color: rgba(0, 123, 255, 0.2);
+        border-color: rgba(0, 123, 255, 0.5);
+    }
+
+    .file-card.dragging {
+        opacity: 0.4;
     }
 
     .file-icon-container {
@@ -339,6 +377,8 @@
         -webkit-box-orient: vertical;
         line-height: 1.4;
         height: 34px;
+        word-break: break-all;
+        min-width: 0;
     }
 
     .file-meta {
@@ -418,6 +458,11 @@
     // 文件列表
     private List<SelectableFileItemWeb> _files = new();
     private int SelectedFilesCount => _files.Count(f => f.IsSelected);
+    private int _lastSelectedIndex = -1;
+
+    // 拖放状态
+    private SelectableFileItemWeb? _draggedFile = null;
+    private bool _isDraggingExternal = false;
 
     protected override void OnInitialized()
     {
@@ -630,10 +675,39 @@
         }
     }
 
-    private void PreloadFile(SelectableFileItemWeb file)
+    private void HandleFileClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e, SelectableFileItemWeb file)
     {
-        // Web 端：单击时不执行任何操作（或者可以标记为"已预览"状态）
-        // 如果需要，可以在这里添加视觉反馈
+        var currentIndex = _files.IndexOf(file);
+
+        if (e.CtrlKey)
+        {
+            // Ctrl + 单击：切换选中状态
+            file.IsSelected = !file.IsSelected;
+            _lastSelectedIndex = file.IsSelected ? currentIndex : -1;
+        }
+        else if (e.ShiftKey && _lastSelectedIndex >= 0)
+        {
+            // Shift + 单击：范围选择
+            var startIndex = Math.Min(_lastSelectedIndex, currentIndex);
+            var endIndex = Math.Max(_lastSelectedIndex, currentIndex);
+
+            for (int i = startIndex; i <= endIndex; i++)
+            {
+                _files[i].IsSelected = true;
+            }
+        }
+        else
+        {
+            // 普通单击：清除其他选择，仅选中当前
+            foreach (var f in _files)
+            {
+                f.IsSelected = false;
+            }
+            file.IsSelected = true;
+            _lastSelectedIndex = currentIndex;
+        }
+
+        StateHasChanged();
     }
 
     private void DownloadFile(SelectableFileItemWeb file)
@@ -677,6 +751,67 @@
             file.IsSelected = false;
         }
         StateHasChanged();
+    }
+
+    // 拖放事件处理
+    private void OnDragStart(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb file)
+    {
+        _draggedFile = file;
+        StateHasChanged();
+    }
+
+    private void OnDragOver(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    {
+        // 允许放置
+    }
+
+    private async Task OnDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    {
+        if (_draggedFile == null || _draggedFile == targetFile)
+            return;
+
+        // 交换位置
+        var draggedPos = (_draggedFile.File.PositionX, _draggedFile.File.PositionY);
+        var targetPos = (targetFile.File.PositionX, targetFile.File.PositionY);
+
+        // 更新拖动文件的位置
+        await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, targetPos.Item1, targetPos.Item2);
+
+        // 更新目标文件的位置
+        await TextHubClient.UpdateFilePositionAsync(targetFile.File.Id, draggedPos.Item1, draggedPos.Item2);
+
+        _draggedFile = null;
+        StateHasChanged();
+    }
+
+    private void OnDragEnd()
+    {
+        _draggedFile = null;
+        StateHasChanged();
+    }
+
+    // 外部文件拖放处理
+    private void OnExternalDragEnter()
+    {
+        _isDraggingExternal = true;
+        StateHasChanged();
+    }
+
+    private void OnExternalDragLeave()
+    {
+        _isDraggingExternal = false;
+        StateHasChanged();
+    }
+
+    private async Task OnExternalDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
+    {
+        _isDraggingExternal = false;
+        StateHasChanged();
+
+        // Blazor WebAssembly 不支持直接访问 DataTransfer.files
+        // 需要使用 InputFile 组件来处理文件上传
+        // 这里只是占位，实际文件上传通过 InputFile 组件完成
+        Console.WriteLine("外部文件拖放（Web 端使用 InputFile 组件上传）");
     }
 
     private void OnFilePositionChanged(int fileId, int positionX, int positionY)

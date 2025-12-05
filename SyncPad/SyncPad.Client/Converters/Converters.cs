@@ -64,7 +64,7 @@ public class BoolToBorderColorConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is bool b && b)
-            return Color.FromArgb("#007BFF"); // 蓝色表示选中
+            return Color.FromRgba(0, 123, 255, 102); // 半透明蓝色边框 (rgba(0, 123, 255, 0.4))
         return Colors.Transparent;
     }
 
