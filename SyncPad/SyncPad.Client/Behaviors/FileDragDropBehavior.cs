@@ -5,6 +5,7 @@ namespace SyncPad.Client.Behaviors;
 
 /// <summary>
 /// 文件拖放行为，用于为文件项设置拖出支持
+/// 注意：Mac 端禁用内部拖动排序，仅 Windows 端支持
 /// </summary>
 public class FileDragDropBehavior : Behavior<View>
 {
@@ -20,6 +21,21 @@ public class FileDragDropBehavior : Behavior<View>
     {
         get => _currentDraggedItem;
         set => _currentDraggedItem = value;
+    }
+
+    /// <summary>
+    /// 是否启用拖放功能（Mac 端禁用）
+    /// </summary>
+    public static bool IsDragDropEnabled
+    {
+        get
+        {
+#if MACCATALYST
+            return false;
+#else
+            return true;
+#endif
+        }
     }
 
     protected override void OnAttachedTo(View bindable)

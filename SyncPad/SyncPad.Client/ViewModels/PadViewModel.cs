@@ -12,6 +12,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     private readonly ITextHubClient _textHubClient;
     private readonly IFileClient _fileClient;
     private readonly IFileCacheManager _cacheManager;
+    private readonly IFileOperationService _fileOperationService;
 
     private string _content = string.Empty;
     private string _connectionStatus = "未连接";
@@ -81,6 +82,10 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand BatchDownloadCommand { get; }
     public ICommand BatchDeleteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
+    public ICommand CopyFileCommand { get; }
+    public ICommand ExportFileCommand { get; }
+    public ICommand BatchCopyCommand { get; }
+    public ICommand BatchExportCommand { get; }
 
     // 属性变更通知辅助方法
     public void NotifySelectionChanged()
@@ -117,13 +122,14 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public event Action? LogoutRequested;
 
-    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient, IFileClient fileClient, IFileCacheManager cacheManager)
+    public PadViewModel(IAuthManager authManager, IApiClient apiClient, ITextHubClient textHubClient, IFileClient fileClient, IFileCacheManager cacheManager, IFileOperationService fileOperationService)
     {
         _authManager = authManager;
         _apiClient = apiClient;
         _textHubClient = textHubClient;
         _fileClient = fileClient;
         _cacheManager = cacheManager;
+        _fileOperationService = fileOperationService;
 
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
@@ -135,6 +141,10 @@ public class PadViewModel : BaseViewModel, IDisposable
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
         BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
         ClearSelectionCommand = new Command(ClearSelection);
+        CopyFileCommand = new Command<SelectableFileItem>(async f => await CopyFileAsync(f));
+        ExportFileCommand = new Command<SelectableFileItem>(async f => await ExportFileAsync(f));
+        BatchCopyCommand = new Command(async () => await BatchCopyAsync(), () => HasSelectedFiles);
+        BatchExportCommand = new Command(async () => await BatchExportAsync(), () => HasSelectedFiles);
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
@@ -561,6 +571,165 @@ public class PadViewModel : BaseViewModel, IDisposable
             System.Diagnostics.Debug.WriteLine($"批量删除文件失败: {ex.Message}");
         }
     }
+
+    #region 复制/导出功能
+
+    /// <summary>
+    /// 复制单个文件到系统剪贴板
+    /// </summary>
+    private async Task CopyFileAsync(SelectableFileItem file)
+    {
+        try
+        {
+            // 确保文件已缓存
+            if (!_cacheManager.IsCached(file.Id))
+            {
+                await PreloadFileAsync(file);
+            }
+
+            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+            if (File.Exists(cachePath))
+            {
+                var success = _fileOperationService.CopyFileToClipboard(cachePath);
+                if (success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("成功", "文件已复制到剪贴板", "确定");
+                }
+                else
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("失败", "复制到剪贴板失败", "确定");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"复制文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 导出单个文件到选择的目录
+    /// </summary>
+    private async Task ExportFileAsync(SelectableFileItem file)
+    {
+        try
+        {
+            // 确保文件已缓存
+            if (!_cacheManager.IsCached(file.Id))
+            {
+                await PreloadFileAsync(file);
+            }
+
+            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+            if (!File.Exists(cachePath))
+            {
+                await Application.Current!.MainPage!.DisplayAlert("失败", "文件未缓存", "确定");
+                return;
+            }
+
+            var targetFolder = await _fileOperationService.PickFolderAsync();
+            if (string.IsNullOrEmpty(targetFolder))
+                return;
+
+            var success = await _fileOperationService.ExportFileAsync(cachePath, targetFolder);
+            if (success)
+            {
+                await Application.Current!.MainPage!.DisplayAlert("成功", $"文件已导出到 {targetFolder}", "确定");
+            }
+            else
+            {
+                await Application.Current!.MainPage!.DisplayAlert("失败", "导出文件失败", "确定");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"导出文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 批量复制选中的文件到剪贴板
+    /// </summary>
+    private async Task BatchCopyAsync()
+    {
+        try
+        {
+            var selectedFiles = SelectedFiles.ToList();
+            var cachePaths = new List<string>();
+
+            foreach (var file in selectedFiles)
+            {
+                // 确保文件已缓存
+                if (!_cacheManager.IsCached(file.Id))
+                {
+                    await PreloadFileAsync(file);
+                }
+
+                var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+                if (File.Exists(cachePath))
+                {
+                    cachePaths.Add(cachePath);
+                }
+            }
+
+            if (cachePaths.Count > 0)
+            {
+                var success = _fileOperationService.CopyFilesToClipboard(cachePaths);
+                if (success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("成功", $"已复制 {cachePaths.Count} 个文件到剪贴板", "确定");
+                }
+                else
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("失败", "复制到剪贴板失败", "确定");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"批量复制文件失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 批量导出选中的文件
+    /// </summary>
+    private async Task BatchExportAsync()
+    {
+        try
+        {
+            var targetFolder = await _fileOperationService.PickFolderAsync();
+            if (string.IsNullOrEmpty(targetFolder))
+                return;
+
+            var selectedFiles = SelectedFiles.ToList();
+            var cachePaths = new List<string>();
+
+            foreach (var file in selectedFiles)
+            {
+                // 确保文件已缓存
+                if (!_cacheManager.IsCached(file.Id))
+                {
+                    await PreloadFileAsync(file);
+                }
+
+                var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+                if (File.Exists(cachePath))
+                {
+                    cachePaths.Add(cachePath);
+                }
+            }
+
+            var successCount = await _fileOperationService.ExportFilesAsync(cachePaths, targetFolder);
+            await Application.Current!.MainPage!.DisplayAlert("完成", $"已导出 {successCount}/{selectedFiles.Count} 个文件", "确定");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"批量导出文件失败: {ex.Message}");
+        }
+    }
+
+    #endregion
 
     private void OnFileUpdateReceived(FileSyncMessage message)
     {
