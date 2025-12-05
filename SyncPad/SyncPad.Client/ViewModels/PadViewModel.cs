@@ -74,7 +74,8 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand LogoutCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand SelectFileCommand { get; }
-    public ICommand DownloadFileCommand { get; }
+    public ICommand PreloadFileCommand { get; }
+    public ICommand OpenFileCommand { get; }
     public ICommand DeleteFileCommand { get; }
     public ICommand ToggleFileSelectionCommand { get; }
     public ICommand BatchDownloadCommand { get; }
@@ -103,7 +104,8 @@ public class PadViewModel : BaseViewModel, IDisposable
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
         SelectFileCommand = new Command(async () => await SelectFileAsync());
-        DownloadFileCommand = new Command<SelectableFileItem>(async f => await DownloadFileAsync(f));
+        PreloadFileCommand = new Command<SelectableFileItem>(async f => await PreloadFileAsync(f));
+        OpenFileCommand = new Command<SelectableFileItem>(async f => await OpenFileAsync(f));
         DeleteFileCommand = new Command<SelectableFileItem>(async f => await DeleteFileAsync(f));
         ToggleFileSelectionCommand = new Command<SelectableFileItem>(ToggleFileSelection);
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
@@ -295,7 +297,55 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async Task DownloadFileAsync(SelectableFileItem file)
+    private async Task PreloadFileAsync(SelectableFileItem file)
+    {
+        try
+        {
+            // 如果已经缓存，不需要重复下载
+            if (_cacheManager.IsCached(file.Id))
+                return;
+
+            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+
+            // 设置为预载中
+            file.Status = FileStatus.Preloading;
+            file.DownloadProgress = 0;
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Preloading);
+
+            // 下载到缓存（不打开文件）
+            var success = await _fileClient.DownloadFileToCacheAsync(
+                file.Id,
+                file.FileName,
+                cachePath,
+                (downloaded, total) =>
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        _cacheManager.UpdateDownloadProgress(file.Id, downloaded, total);
+                        file.DownloadProgress = _cacheManager.GetDownloadProgress(file.Id);
+                    });
+                });
+
+            if (success)
+            {
+                file.Status = FileStatus.Cached;
+                _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
+            }
+            else
+            {
+                file.Status = FileStatus.Remote;
+                _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
+            }
+        }
+        catch (Exception ex)
+        {
+            file.Status = FileStatus.Remote;
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
+            System.Diagnostics.Debug.WriteLine($"预载文件失败: {ex.Message}");
+        }
+    }
+
+    private async Task OpenFileAsync(SelectableFileItem file)
     {
         try
         {
@@ -304,7 +354,7 @@ public class PadViewModel : BaseViewModel, IDisposable
             // 检查是否已缓存
             if (_cacheManager.IsCached(file.Id))
             {
-                // 已缓存，直接打开系统文件浏览器查看
+                // 已缓存，直接打开
                 await Launcher.Default.OpenAsync(new OpenFileRequest
                 {
                     File = new ReadOnlyFile(cachePath)
@@ -312,12 +362,11 @@ public class PadViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            // 设置为预载中（全速）
+            // 未缓存，先下载
             file.Status = FileStatus.Preloading;
             file.DownloadProgress = 0;
             _cacheManager.SetFileStatus(file.Id, FileStatus.Preloading);
 
-            // 下载到缓存
             var success = await _fileClient.DownloadFileToCacheAsync(
                 file.Id,
                 file.FileName,
@@ -344,7 +393,6 @@ public class PadViewModel : BaseViewModel, IDisposable
             }
             else
             {
-                // 预载失败，回退到 Remote 状态
                 file.Status = FileStatus.Remote;
                 _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
                 await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件", "确定");
@@ -352,10 +400,9 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            // 预载失败，回退到 Remote 状态
             file.Status = FileStatus.Remote;
             _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-            System.Diagnostics.Debug.WriteLine($"下载文件失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"打开文件失败: {ex.Message}");
         }
     }
 
@@ -410,7 +457,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         foreach (var file in SelectedFiles.ToList())
         {
-            await DownloadFileAsync(file);
+            await OpenFileAsync(file);
         }
     }
 

@@ -13,7 +13,7 @@
             <ColumnDefinition>
                 <ColumnDefinition.Width>
                     <OnIdiom x:TypeArguments="GridLength">
-                        <OnIdiom.Desktop>300</OnIdiom.Desktop>
+                        <OnIdiom.Desktop>480</OnIdiom.Desktop>
                         <OnIdiom.Tablet>0</OnIdiom.Tablet>
                         <OnIdiom.Phone>0</OnIdiom.Phone>
                     </OnIdiom>
@@ -191,14 +191,14 @@
 
                                     <Grid RowSpacing="4">
                                         <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="48"/>
+                                            <RowDefinition Height="34"/>
+                                            <RowDefinition Height="16"/>
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
                                         <!-- 文件图标和状态角标 -->
-                                        <Grid Grid.Row="0" HeightRequest="48" Margin="0,0,0,4">
+                                        <Grid Grid.Row="0">
                                             <!-- 文件图标 -->
                                             <Label Text="{Binding FileIcon}"
                                                    FontSize="32"
@@ -259,10 +259,10 @@
 
                                         <!-- 点击手势 -->
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=DownloadFileCommand}"
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=PreloadFileCommand}"
                                                                 CommandParameter="{Binding .}"/>
                                             <TapGestureRecognizer NumberOfTapsRequired="2"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=ToggleFileSelectionCommand}"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=OpenFileCommand}"
                                                                 CommandParameter="{Binding .}"/>
                                         </Grid.GestureRecognizers>
                                     </Grid>
@@ -486,14 +486,14 @@
 
                                             <Grid RowSpacing="4">
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="48"/>
+                                                    <RowDefinition Height="34"/>
+                                                    <RowDefinition Height="16"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
 
                                                 <!-- 文件图标和状态角标 -->
-                                                <Grid Grid.Row="0" HeightRequest="48" Margin="0,0,0,4">
+                                                <Grid Grid.Row="0">
                                                     <!-- 文件图标 -->
                                                     <Label Text="{Binding FileIcon}"
                                                            FontSize="32"
@@ -554,10 +554,10 @@
 
                                                 <!-- 点击手势 -->
                                                 <Grid.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=DownloadFileCommand}"
+                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=PreloadFileCommand}"
                                                                         CommandParameter="{Binding .}"/>
                                                     <TapGestureRecognizer NumberOfTapsRequired="2"
-                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=ToggleFileSelectionCommand}"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=OpenFileCommand}"
                                                                         CommandParameter="{Binding .}"/>
                                                 </Grid.GestureRecognizers>
                                             </Grid>
