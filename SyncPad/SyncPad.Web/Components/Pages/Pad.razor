@@ -6,6 +6,7 @@
 @inject ITextHubClient TextHubClient
 @inject IFileClient FileClient
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <PageTitle>面板 - SyncPad</PageTitle>
@@ -51,12 +52,15 @@
 
         <!-- 文件网格 -->
         <div class="file-grid @(_isDraggingExternal ? "drag-over" : "")"
+             @ref="_fileGridRef"
+             @onclick="OnFileGridClick"
              @ondragenter:preventDefault="true"
              @ondragenter="OnExternalDragEnter"
+             @ondragleave:preventDefault="true"
              @ondragleave="OnExternalDragLeave"
              @ondragover:preventDefault="true"
              @ondrop:preventDefault="true"
-             @ondrop="OnExternalDrop">
+             @ondrop="OnGridDrop">
             @if (_files.Count == 0)
             {
                 <div class="empty-state">暂无文件</div>
@@ -65,14 +69,21 @@
             {
                 @foreach (var file in _files)
                 {
-                    <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "")"
+                    var downloadUrl = FileClient.GetDownloadUrl(file.File.Id);
+                    <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "") @(_dropTarget == file ? "drop-target" : "")"
                          draggable="true"
+                         data-file-id="@file.File.Id"
+                         data-download-url="@downloadUrl"
+                         data-file-name="@file.File.FileName"
                          @ondragstart="(e) => OnDragStart(e, file)"
+                         @ondragenter="(e) => OnCardDragEnter(e, file)"
                          @ondragover:preventDefault="true"
-                         @ondragover="(e) => OnDragOver(e, file)"
-                         @ondrop="(e) => OnDrop(e, file)"
+                         @ondrop:preventDefault="true"
+                         @ondrop:stopPropagation="true"
+                         @ondrop="(e) => OnCardDrop(e, file)"
                          @ondragend="OnDragEnd"
                          @onclick="(e) => HandleFileClick(e, file)"
+                         @onclick:stopPropagation="true"
                          @ondblclick="() => DownloadFile(file)">
                         <div class="file-icon-container">
                             <div class="file-icon">@file.FileIcon</div>
@@ -332,6 +343,12 @@
         opacity: 0.4;
     }
 
+    .file-card.drop-target {
+        background-color: rgba(0, 120, 212, 0.15);
+        border-color: rgba(0, 120, 212, 0.5);
+        border-style: dashed;
+    }
+
     .file-icon-container {
         position: relative;
         height: 48px;
@@ -448,7 +465,11 @@
 
     // 拖放状态
     private SelectableFileItemWeb? _draggedFile = null;
+    private SelectableFileItemWeb? _dropTarget = null;
     private bool _isDraggingExternal = false;
+    private bool _isInternalDrag = false;
+    private ElementReference _fileGridRef;
+    private DotNetObjectReference<Pad>? _dotNetRef;
 
     protected override void OnInitialized()
     {
@@ -465,7 +486,7 @@
         {
             _isInitialized = true;
 
-            // 先尝试恢复会话（需要 JS 互操作）
+            // 先尝试恢复会���（需要 JS 互操作）
             await AuthManager.TryRestoreSessionAsync();
 
             // 检查是否已登录
@@ -474,6 +495,10 @@
                 Navigation.NavigateTo("/login");
                 return;
             }
+
+            // 初始化拖放区域的 JS 互操作
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("DragDropInterop.initDropZone", _fileGridRef, _dotNetRef);
 
             // 连接 SignalR
             await ConnectToHub();
@@ -739,44 +764,78 @@
         StateHasChanged();
     }
 
-    // 拖放事件处理
+    // 点击空白区域取消选中
+    private void OnFileGridClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
+    {
+        // 如果点击的是空白区域（不是文件卡片），取消所有选中
+        ClearSelection();
+    }
+
+    // 内部拖放事件处理
     private void OnDragStart(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb file)
     {
         _draggedFile = file;
+        _isInternalDrag = true;
+        _dropTarget = null;
         StateHasChanged();
     }
 
-    private void OnDragOver(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    private void OnCardDragEnter(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
     {
-        // 允许放置
+        // 只在内部拖动时高亮目标
+        if (_isInternalDrag && _draggedFile != null && _draggedFile != targetFile)
+        {
+            _dropTarget = targetFile;
+            StateHasChanged();
+        }
     }
 
-    private async Task OnDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
+    private async Task OnCardDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e, SelectableFileItemWeb targetFile)
     {
+        _dropTarget = null;
+
         if (_draggedFile == null || _draggedFile == targetFile)
+        {
+            _isInternalDrag = false;
             return;
+        }
 
-        // 移动到目标位置（将拖动文件移动到目标文件位置）
-        var targetPos = (targetFile.File.PositionX, targetFile.File.PositionY);
+        // 交换位置：将两个文件的位置互换
+        var draggedIndex = _files.IndexOf(_draggedFile);
+        var targetIndex = _files.IndexOf(targetFile);
 
-        // 更新拖动文件的位置
-        await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, targetPos.Item1, targetPos.Item2);
+        if (draggedIndex >= 0 && targetIndex >= 0)
+        {
+            // 在列表中交换位置
+            (_files[draggedIndex], _files[targetIndex]) = (_files[targetIndex], _files[draggedIndex]);
+
+            // 通知服务器更新位置（可选：如果需要持久化位置）
+            // 这里使用列表索引作为位置
+            await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, targetIndex, 0);
+            await TextHubClient.UpdateFilePositionAsync(targetFile.File.Id, draggedIndex, 0);
+        }
 
         _draggedFile = null;
+        _isInternalDrag = false;
         StateHasChanged();
     }
 
     private void OnDragEnd()
     {
         _draggedFile = null;
+        _dropTarget = null;
+        _isInternalDrag = false;
         StateHasChanged();
     }
 
-    // 外部文件拖放处理
+    // 网格拖放事件（用于外部文件拖入）
     private void OnExternalDragEnter()
     {
-        _isDraggingExternal = true;
-        StateHasChanged();
+        if (!_isInternalDrag)
+        {
+            _isDraggingExternal = true;
+            StateHasChanged();
+        }
     }
 
     private void OnExternalDragLeave()
@@ -785,15 +844,74 @@
         StateHasChanged();
     }
 
-    private async Task OnExternalDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
+    private async Task OnGridDrop(Microsoft.AspNetCore.Components.Web.DragEventArgs e)
     {
         _isDraggingExternal = false;
-        StateHasChanged();
+        _dropTarget = null;
 
-        // Blazor WebAssembly 不支持直接访问 DataTransfer.files
-        // 需要使用 InputFile 组件来处理文件上传
-        // 这里只是占位，实际文件上传通过 InputFile 组件完成
-        Console.WriteLine("外部文件拖放（Web 端使用 InputFile 组件上传）");
+        // 如果是内部拖动到空白处，取消拖动
+        if (_isInternalDrag)
+        {
+            _draggedFile = null;
+            _isInternalDrag = false;
+            StateHasChanged();
+            return;
+        }
+
+        // 外部文件拖入由 JS 互操作处理
+        StateHasChanged();
+    }
+
+    // JS 互操作回调：外部文件拖入
+    [JSInvokable]
+    public async Task OnFilesDropped(FileDropInfo[] files)
+    {
+        if (files == null || files.Length == 0)
+            return;
+
+        for (int i = 0; i < files.Length; i++)
+        {
+            try
+            {
+                // 通过 JS 读取文件内容
+                var fileData = await JSRuntime.InvokeAsync<FileDataInfo>("DragDropInterop.readDroppedFile", i);
+                if (fileData != null)
+                {
+                    // 将 base64 转换为字节数组
+                    var bytes = Convert.FromBase64String(fileData.Data);
+                    using var stream = new MemoryStream(bytes);
+
+                    // 检查是否存在同名文件
+                    bool overwrite = await FileClient.FileExistsAsync(fileData.Name);
+
+                    // 上传文件
+                    await FileClient.UploadFileAsync(fileData.Name, stream, fileData.Type, overwrite);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"上传文件失败: {ex.Message}");
+            }
+        }
+
+        // 清理暂存的文件
+        await JSRuntime.InvokeVoidAsync("DragDropInterop.clearDroppedFiles");
+    }
+
+    // JS 互操作用的数据类
+    public class FileDropInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public string Type { get; set; } = string.Empty;
+    }
+
+    public class FileDataInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public string Data { get; set; } = string.Empty;
     }
 
     private void OnFilePositionChanged(int fileId, int positionX, int positionY)
@@ -866,6 +984,7 @@
         TextHubClient.FilePositionChanged -= OnFilePositionChanged;
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
+        _dotNetRef?.Dispose();
     }
 
     // Web 专用的可选择文件项
