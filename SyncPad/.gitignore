@@ -1,0 +1,27 @@
+## Build results
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.sln.iml
+.idea/
+*.swp
+*.swo
+
+## Runtime
+*.log
+appsettings.local.json
+
+## Local development files and uploads
+SyncPad.Server/data/files/
+SyncPad.Server/data/syncpad.db*
+
+## OS
+.DS_Store
+Thumbs.db
