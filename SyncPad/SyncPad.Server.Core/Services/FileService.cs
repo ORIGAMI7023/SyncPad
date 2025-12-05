@@ -28,7 +28,8 @@ public class FileService : IFileService
     {
         return await _context.FileItems
             .Where(f => f.UserId == userId && !f.IsDeleted)
-            .OrderByDescending(f => f.UploadedAt)
+            .OrderBy(f => f.PositionY)
+            .ThenBy(f => f.PositionX)
             .Select(f => new FileItemDto
             {
                 Id = f.Id,
@@ -116,7 +117,7 @@ public class FileService : IFileService
             await DeleteFileInternalAsync(existingFile);
         }
 
-        // 获取下一个可用位置
+        // 获取下一个可用位置（网格坐标）
         var (posX, posY) = await GetNextAvailablePositionAsync(userId);
 
         // 创建 FileItem 记录
@@ -279,7 +280,7 @@ public class FileService : IFileService
 
     public async Task<(int X, int Y)> GetNextAvailablePositionAsync(int userId)
     {
-        const int maxColumns = 8; // 固定 8 列
+        const int maxColumns = 4; // 固定 4 列
 
         // 获取用户所有文件的位置（包括已删除的，避免位置冲突）
         var occupiedPositions = await _context.FileItems

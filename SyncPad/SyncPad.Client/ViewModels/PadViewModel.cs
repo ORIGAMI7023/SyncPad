@@ -20,6 +20,10 @@ public class PadViewModel : BaseViewModel, IDisposable
     private CancellationTokenSource? _throttleCts;
     private readonly object _throttleLock = new();
 
+    // 日志输出
+    private string _debugLog = string.Empty;
+    private readonly object _logLock = new();
+
     public string Content
     {
         get => _content;
@@ -46,6 +50,12 @@ public class PadViewModel : BaseViewModel, IDisposable
     }
 
     public string Username => _authManager.Username ?? "未知用户";
+
+    public string DebugLog
+    {
+        get => _debugLog;
+        set => SetProperty(ref _debugLog, value);
+    }
 
     // 文件列表
     private ObservableCollection<SelectableFileItem> _files = [];
@@ -81,14 +91,73 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand BatchDownloadCommand { get; }
     public ICommand BatchDeleteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
+    public ICommand ClearLogCommand { get; }
 
     // 属性变更通知辅助方法
-    private void NotifySelectionChanged()
+    public void NotifySelectionChanged()
     {
         OnPropertyChanged(nameof(HasSelectedFiles));
         OnPropertyChanged(nameof(SelectedFilesText));
         ((Command)BatchDownloadCommand).ChangeCanExecute();
         ((Command)BatchDeleteCommand).ChangeCanExecute();
+    }
+
+    /// <summary>
+    /// 清除所有文件的选中状态
+    /// </summary>
+    public void ClearAllSelection()
+    {
+        foreach (var file in Files)
+        {
+            file.IsSelected = false;
+        }
+        NotifySelectionChanged();
+    }
+
+    /// <summary>
+    /// 添加调试日志
+    /// </summary>
+    public void AddDebugLog(string message)
+    {
+        lock (_logLock)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            var logEntry = $"[{timestamp}] {message}";
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                DebugLog += logEntry + Environment.NewLine;
+
+                // 保留最后500行
+                var lines = DebugLog.Split(Environment.NewLine);
+                if (lines.Length > 500)
+                {
+                    DebugLog = string.Join(Environment.NewLine, lines.Skip(lines.Length - 500));
+                }
+            });
+
+            System.Diagnostics.Debug.WriteLine(logEntry);
+        }
+    }
+
+    /// <summary>
+    /// 清除日志
+    /// </summary>
+    public void ClearDebugLog()
+    {
+        DebugLog = string.Empty;
+    }
+
+    /// <summary>
+    /// 获取已缓存文件的本地路径
+    /// </summary>
+    public string? GetCachedFilePath(SelectableFileItem file)
+    {
+        if (_cacheManager.IsCached(file.Id))
+        {
+            return _cacheManager.GetCachePath(file.Id, file.FileName);
+        }
+        return null;
     }
 
     public event Action? LogoutRequested;
@@ -111,6 +180,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
         BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
         ClearSelectionCommand = new Command(ClearSelection);
+        ClearLogCommand = new Command(ClearDebugLog);
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
@@ -121,6 +191,8 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public async Task InitializeAsync()
     {
+        AddDebugLog("开始初始化...");
+
         // 连接 SignalR
         await ConnectToHubAsync();
 
@@ -128,7 +200,43 @@ public class PadViewModel : BaseViewModel, IDisposable
         await RefreshTextAsync();
 
         // 加载文件列表
-        await RefreshFilesAsync();
+        await RefreshFilesInternalAsync();
+
+        // 自动预载所有远程文件（后台执行，不阻塞 UI）
+        _ = Task.Run(async () => await AutoPreloadAllFilesAsync());
+
+        AddDebugLog("初始化完成");
+    }
+
+    /// <summary>
+    /// 自动预载所有远程文件
+    /// </summary>
+    private async Task AutoPreloadAllFilesAsync()
+    {
+        try
+        {
+            // 等待一小段时间，确保 UI 已渲染
+            await Task.Delay(500);
+
+            // 获取所有需要预载的文件（状态为 Remote）
+            var filesToPreload = Files.Where(f => f.Status == FileStatus.Remote).ToList();
+
+            foreach (var file in filesToPreload)
+            {
+                // 如果文件已经开始预载或已缓存，跳过
+                if (file.Status != FileStatus.Remote)
+                    continue;
+
+                await PreloadFileAsync(file);
+
+                // 每个文件之间稍微延迟，避免同时下载过多文件
+                await Task.Delay(100);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"自动预载文件失败: {ex.Message}");
+        }
     }
 
     private async Task ConnectToHubAsync()
@@ -213,18 +321,30 @@ public class PadViewModel : BaseViewModel, IDisposable
         LogoutRequested?.Invoke();
     }
 
-    private async Task RefreshFilesAsync()
+    /// <summary>
+    /// 刷新文件列表（公开方法）
+    /// </summary>
+    public async Task RefreshFilesAsync() => await RefreshFilesInternalAsync();
+
+    private async Task RefreshFilesInternalAsync()
     {
         try
         {
             var response = await _fileClient.GetFilesAsync();
             if (response.Success && response.Data != null)
             {
+                AddDebugLog($"收到文件列表: {response.Data.Files.Count} 个文件");
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     Files.Clear();
+
+                    // 服务器已按 PositionY, PositionX 排序返回
+                    // 直接添加到集合，FileGridView 会根据 Position(X,Y) 定位每个文件
                     foreach (var file in response.Data.Files)
                     {
+                        AddDebugLog($"文件: {file.FileName}, Position=({file.PositionX},{file.PositionY})");
+
                         var item = new SelectableFileItem(file)
                         {
                             Status = _cacheManager.GetFileStatus(file.Id),
@@ -232,6 +352,8 @@ public class PadViewModel : BaseViewModel, IDisposable
                         };
                         Files.Add(item);
                     }
+
+                    AddDebugLog($"文件列表刷新完成，共 {Files.Count} 个文件");
                     OnPropertyChanged(nameof(HasFiles));
                     OnPropertyChanged(nameof(HasNoFiles));
                 });
@@ -239,6 +361,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
+            AddDebugLog($"刷新文件列表失败: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"刷新文件列表失败: {ex.Message}");
         }
     }
@@ -455,9 +578,10 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     private async Task BatchDownloadAsync()
     {
+        // 批量下载：只预载到缓存，不自动打开
         foreach (var file in SelectedFiles.ToList())
         {
-            await OpenFileAsync(file);
+            await PreloadFileAsync(file);
         }
     }
 
@@ -538,13 +662,12 @@ public class PadViewModel : BaseViewModel, IDisposable
             var file = Files.FirstOrDefault(f => f.Id == fileId);
             if (file != null)
             {
-                // 更新位置信息（通过重新设置 File 对象的位置属性）
-                // 注意：由于 File 是只读的 FileItemDto，我们需要更新其内部值
-                // 这里通过反射或直接访问 File 的属性来更新
-                // 简单起见，我们重新创建 SelectableFileItem
-                var index = Files.IndexOf(file);
-                if (index >= 0)
+                var currentIndex = Files.IndexOf(file);
+                AddDebugLog($"文件位置变更: FileId={fileId}, FileName={file.FileName}, CurrentIndex={currentIndex}, NewPosition=({positionX},{positionY})");
+
+                if (currentIndex >= 0 && positionX >= 0 && positionX < Files.Count && currentIndex != positionX)
                 {
+                    // 更新位置：将文件从当前位置移动到新位置
                     var updatedDto = new FileItemDto
                     {
                         Id = file.Id,
@@ -564,8 +687,19 @@ public class PadViewModel : BaseViewModel, IDisposable
                         IsSelected = file.IsSelected
                     };
 
-                    Files[index] = updatedItem;
+                    // 先移除，再插入到新位置
+                    Files.RemoveAt(currentIndex);
+                    Files.Insert(positionX, updatedItem);
+                    AddDebugLog($"文件已移动: {currentIndex} -> {positionX}");
                 }
+                else
+                {
+                    AddDebugLog($"位置未变更或无效: CurrentIndex={currentIndex}, NewPosition={positionX}, FilesCount={Files.Count}");
+                }
+            }
+            else
+            {
+                AddDebugLog($"文件未找到: FileId={fileId}");
             }
         });
     }
@@ -573,7 +707,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     #region 拖放支持
 
     /// <summary>
-    /// 交换两个文件的位置
+    /// 将拖动的文件移动到目标位置（插入到目标之前）
     /// </summary>
     public async Task SwapFilePositionsAsync(SelectableFileItem draggedItem, SelectableFileItem targetItem)
     {
@@ -582,19 +716,43 @@ public class PadViewModel : BaseViewModel, IDisposable
             var draggedIndex = Files.IndexOf(draggedItem);
             var targetIndex = Files.IndexOf(targetItem);
 
-            if (draggedIndex < 0 || targetIndex < 0)
+            AddDebugLog($"拖放操作: DraggedFile={draggedItem.FileName}(Index={draggedIndex}), TargetFile={targetItem.FileName}(Index={targetIndex})");
+
+            if (draggedIndex < 0 || targetIndex < 0 || draggedIndex == targetIndex)
+            {
+                AddDebugLog($"拖放取消: DraggedIndex={draggedIndex}, TargetIndex={targetIndex}");
                 return;
+            }
 
-            // 在列表中交换位置
+            // 在列表中移动文件
             Files.Move(draggedIndex, targetIndex);
+            AddDebugLog($"本地UI已移动: {draggedIndex} -> {targetIndex}");
 
-            // 通知服务器更新位置
+            // 只通知服务器被拖动文件的新位置
+            // 服务器会广播给其他客户端，其他客户端通过 OnFilePositionChanged 更新
             await _textHubClient.UpdateFilePositionAsync(draggedItem.Id, targetIndex, 0);
-            await _textHubClient.UpdateFilePositionAsync(targetItem.Id, draggedIndex, 0);
+            AddDebugLog($"已发送位置更新到服务器: FileId={draggedItem.Id}, Position={targetIndex}");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"交换文件位置失败: {ex.Message}");
+            AddDebugLog($"移动文件位置失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"移动文件位置失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 更新文件位置（仅更新到服务器）
+    /// </summary>
+    public async Task UpdateFilePositionAsync(int fileId, int positionX, int positionY)
+    {
+        try
+        {
+            await _textHubClient.UpdateFilePositionAsync(fileId, positionX, positionY);
+            AddDebugLog($"已发送位置更新: FileId={fileId}, Position=({positionX},{positionY})");
+        }
+        catch (Exception ex)
+        {
+            AddDebugLog($"更新文件位置失败: {ex.Message}");
         }
     }
 

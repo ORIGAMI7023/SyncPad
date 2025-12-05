@@ -143,13 +143,13 @@ public class FilesController : ControllerBase
                 Response.Headers["Accept-Ranges"] = "bytes";
                 Response.ContentLength = length;
 
-                return File(stream, mimeType ?? "application/octet-stream", fileName, enableRangeProcessing: true);
+                return File(stream, string.IsNullOrWhiteSpace(mimeType) ? "application/octet-stream" : mimeType, fileName, enableRangeProcessing: true);
             }
         }
 
         // 标准全量下载
         Response.Headers["Accept-Ranges"] = "bytes";
-        return File(stream, mimeType ?? "application/octet-stream", fileName, enableRangeProcessing: true);
+        return File(stream, string.IsNullOrWhiteSpace(mimeType) ? "application/octet-stream" : mimeType, fileName, enableRangeProcessing: true);
     }
 
     private async Task<System.Security.Claims.ClaimsPrincipal?> ValidateTokenAsync(string token)

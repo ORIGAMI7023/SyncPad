@@ -46,7 +46,7 @@ public interface IFileService
     Task<bool> UpdateFilePositionAsync(int userId, int fileId, int positionX, int positionY);
 
     /// <summary>
-    /// 获取下一个可用位置（第一个空位，左优先、上优先）
+    /// 获取下一个可用网格位置
     /// </summary>
     Task<(int X, int Y)> GetNextAvailablePositionAsync(int userId);
 }
