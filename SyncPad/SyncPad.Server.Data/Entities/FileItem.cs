@@ -52,6 +52,16 @@ public class FileItem
     /// </summary>
     public DateTime? DeletedAt { get; set; }
 
+    /// <summary>
+    /// 网格位置 X（列坐标，0-7）
+    /// </summary>
+    public int PositionX { get; set; } = 0;
+
+    /// <summary>
+    /// 网格位置 Y（行坐标，0-∞）
+    /// </summary>
+    public int PositionY { get; set; } = 0;
+
     // 导航属性
     public User? User { get; set; }
 }

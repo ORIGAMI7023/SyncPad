@@ -1,32 +1,27 @@
 namespace SyncPad.Shared.Models;
 
 /// <summary>
-/// 文件状态枚举
+/// 文件状态枚举（预载系统）
 /// </summary>
 public enum FileStatus
 {
     /// <summary>
-    /// 仅服务器有，本地无缓存
+    /// 未预载 - 仅元数据同步，无本地缓存
     /// </summary>
     Remote,
 
     /// <summary>
-    /// 正在下载中（进度由客户端本地计算）
+    /// 预载排队中 - 等待后台预载
     /// </summary>
-    Downloading,
+    PreloadPending,
 
     /// <summary>
-    /// 已完整缓存到本地 tmp
+    /// 正在预载 - 后台低速下载中（或用户点击后全速下载）
     /// </summary>
-    Cached,
+    Preloading,
 
     /// <summary>
-    /// 部分缓存（预留：预载用，暂未实现）
+    /// 预载完成 - 本地已有完整文件
     /// </summary>
-    CachedPartial,
-
-    /// <summary>
-    /// 下载失败
-    /// </summary>
-    Error
+    Cached
 }

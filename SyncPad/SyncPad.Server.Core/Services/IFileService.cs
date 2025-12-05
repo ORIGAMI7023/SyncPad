@@ -39,4 +39,14 @@ public interface IFileService
     /// 清理过期文件（后台任务调用）
     /// </summary>
     Task CleanupExpiredFilesAsync();
+
+    /// <summary>
+    /// 更新文件位置
+    /// </summary>
+    Task<bool> UpdateFilePositionAsync(int userId, int fileId, int positionX, int positionY);
+
+    /// <summary>
+    /// 获取下一个可用位置（第一个空位，左优先、上优先）
+    /// </summary>
+    Task<(int X, int Y)> GetNextAvailablePositionAsync(int userId);
 }

@@ -45,6 +45,7 @@ public class SyncPadDbContext : DbContext
             entity.HasIndex(e => new { e.UserId, e.FileName, e.IsDeleted });
             entity.HasIndex(e => e.ContentHash);
             entity.HasIndex(e => e.ExpiresAt);
+            entity.HasIndex(e => new { e.UserId, e.PositionX, e.PositionY }); // 位置索引
             entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
             entity.Property(e => e.ContentHash).HasMaxLength(64).IsRequired();
             entity.Property(e => e.MimeType).HasMaxLength(100);

@@ -24,7 +24,7 @@ public class SelectableFileItem : BaseViewModel
             if (SetProperty(ref _status, value))
             {
                 OnPropertyChanged(nameof(StatusText));
-                OnPropertyChanged(nameof(IsDownloading));
+                OnPropertyChanged(nameof(IsPreloading));
                 OnPropertyChanged(nameof(IsCached));
             }
         }
@@ -40,15 +40,14 @@ public class SelectableFileItem : BaseViewModel
     public string StatusText => Status switch
     {
         FileStatus.Remote => "云端",
-        FileStatus.Downloading => $"下载中 {DownloadProgress}%",
+        FileStatus.PreloadPending => "队列中",
+        FileStatus.Preloading => $"预载中 {DownloadProgress}%",
         FileStatus.Cached => "已缓存",
-        FileStatus.CachedPartial => "部分缓存",
-        FileStatus.Error => "错误",
         _ => "未知"
     };
 
-    public bool IsDownloading => Status == FileStatus.Downloading;
-    public bool IsCached => Status == FileStatus.Cached || Status == FileStatus.CachedPartial;
+    public bool IsPreloading => Status == FileStatus.Preloading;
+    public bool IsCached => Status == FileStatus.Cached;
 
     // 委托 FileItemDto 的属性
     public int Id => File.Id;

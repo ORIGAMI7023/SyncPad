@@ -44,7 +44,7 @@ public class FileCacheManager : IFileCacheManager
     public bool IsCached(int fileId)
     {
         var status = GetFileStatus(fileId);
-        return status == FileStatus.Cached || status == FileStatus.CachedPartial;
+        return status == FileStatus.Cached;
     }
 
     public int GetDownloadProgress(int fileId)

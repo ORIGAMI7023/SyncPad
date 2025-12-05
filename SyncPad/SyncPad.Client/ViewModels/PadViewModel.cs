@@ -311,10 +311,10 @@ public class PadViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            // 设置为下载中
-            file.Status = FileStatus.Downloading;
+            // 设置为预载中（全速）
+            file.Status = FileStatus.Preloading;
             file.DownloadProgress = 0;
-            _cacheManager.SetFileStatus(file.Id, FileStatus.Downloading);
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Preloading);
 
             // 下载到缓存
             var success = await _fileClient.DownloadFileToCacheAsync(
@@ -343,15 +343,17 @@ public class PadViewModel : BaseViewModel, IDisposable
             }
             else
             {
-                file.Status = FileStatus.Error;
-                _cacheManager.SetFileStatus(file.Id, FileStatus.Error);
+                // 预载失败，回退到 Remote 状态
+                file.Status = FileStatus.Remote;
+                _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
                 await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件", "确定");
             }
         }
         catch (Exception ex)
         {
-            file.Status = FileStatus.Error;
-            _cacheManager.SetFileStatus(file.Id, FileStatus.Error);
+            // 预载失败，回退到 Remote 状态
+            file.Status = FileStatus.Remote;
+            _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
             System.Diagnostics.Debug.WriteLine($"下载文件失败: {ex.Message}");
         }
     }
