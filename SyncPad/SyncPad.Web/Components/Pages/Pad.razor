@@ -25,9 +25,29 @@
             </div>
         </div>
 
+        <!-- 移动端文本编辑工具栏 -->
+        <div class="mobile-edit-toolbar">
+            <button class="btn-mobile" @onclick="SelectAllText">全选</button>
+            <button class="btn-mobile" @onclick="CopyText">复制</button>
+            <button class="btn-mobile" @onclick="PasteText">粘贴</button>
+            <button class="btn-mobile btn-delete" @onclick="ClearText">清空</button>
+        </div>
+
         <!-- 文本编辑区域 -->
         <div class="editor-container">
-            <textarea @bind="_content" @bind:event="oninput" @onkeyup="HandleTextChange" placeholder="在这里输入文本..."></textarea>
+            <textarea @ref="_textareaRef"
+                      id="syncpad-textarea"
+                      name="syncpad_content_field"
+                      @bind="_content"
+                      @bind:event="oninput"
+                      @bind:after="HandleTextInput"
+                      @onpaste="HandleTextPaste"
+                      autocomplete="one-time-code"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      inputmode="text"
+                      placeholder="在这里输入文本..."></textarea>
         </div>
 
         <!-- 状态栏 -->
@@ -151,6 +171,43 @@
     .toolbar-actions {
         display: flex;
         gap: 10px;
+    }
+
+    /* 移动端文本编辑工具栏 */
+    .mobile-edit-toolbar {
+        display: none;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .btn-mobile {
+        padding: 8px 16px;
+        border: 1px solid #007bff;
+        border-radius: 4px;
+        background-color: white;
+        color: #007bff;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-mobile:active {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .btn-mobile.btn-delete {
+        border-color: #dc3545;
+        color: #dc3545;
+    }
+
+    .btn-mobile.btn-delete:active {
+        background-color: #dc3545;
+        color: white;
     }
 
     .btn-secondary, .btn-primary, .btn-success, .btn-danger {
@@ -426,6 +483,11 @@
             border-bottom: 1px solid #ddd;
         }
 
+        /* 移动端显示文本编辑工具栏 */
+        .mobile-edit-toolbar {
+            display: flex;
+        }
+
         .file-area {
             width: 100%;
             flex: 1;
@@ -452,6 +514,7 @@
     private bool _isInitialized = false;
     private CancellationTokenSource? _throttleCts;
     private readonly object _throttleLock = new();
+    private ElementReference _textareaRef;
 
     // 文件列表
     private List<SelectableFileItemWeb> _files = new();
@@ -576,6 +639,131 @@
         {
             ThrottleSendUpdate();
         }
+    }
+
+    // 处理输入事件（包括粘贴后的手动输入）
+    private void HandleTextInput()
+    {
+        if (!_isUpdatingFromServer)
+        {
+            ThrottleSendUpdate();
+        }
+    }
+
+    // 处理粘贴事件（修复移动端长按粘贴不触发同步的问题）
+    private void HandleTextPaste()
+    {
+        if (!_isUpdatingFromServer)
+        {
+            // 延迟一小段时间让浏览器完成粘贴操作，然后触发同步
+            Task.Delay(50).ContinueWith(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    ThrottleSendUpdate();
+                });
+            });
+        }
+    }
+
+    // 移动端工具栏按钮：全选
+    private async Task SelectAllText()
+    {
+        try
+        {
+            // iOS 需要 setTimeout 延迟，等待键盘弹起或焦点稳定
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var textarea = document.getElementById('syncpad-textarea');
+                    if (textarea) {
+                        textarea.focus();
+                        setTimeout(function() {
+                            textarea.setSelectionRange(0, 99999);
+                            if (typeof textarea.select === 'function') {
+                                textarea.select();
+                            }
+                        }, 100);
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"全选失败: {ex.Message}");
+        }
+    }
+
+    // 移动端工具栏按钮：复制
+    private async Task CopyText()
+    {
+        try
+        {
+            // 先尝试使用 Clipboard API，失败则降级到 execCommand
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var textarea = document.getElementById('syncpad-textarea');
+                    if (textarea && navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(textarea.value).catch(function(err) {
+                            textarea.select();
+                            document.execCommand('copy');
+                        });
+                    } else {
+                        textarea.select();
+                        document.execCommand('copy');
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"复制失败: {ex.Message}");
+        }
+    }
+
+    // 移动端工具栏按钮：粘贴
+    private async Task PasteText()
+    {
+        try
+        {
+            // iOS 要求 clipboard API 必须在用户手势中直接调用
+            // 如果失败，聚焦文本框并提示用户手动粘贴
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (async function() {
+                    var textarea = document.getElementById('syncpad-textarea');
+                    if (!textarea) return;
+
+                    textarea.focus();
+
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.readText) {
+                            var text = await navigator.clipboard.readText();
+                            if (text) {
+                                textarea.value = text;
+                                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        // iOS 限制，降级处理
+                    }
+
+                    // 降级：提示用户手动粘贴
+                    alert('iOS 限制了自动粘贴，请在输入框内【长按】并选择【粘贴】');
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"粘贴失败: {ex.Message}");
+        }
+    }
+
+    // 移动端工具栏按钮：清空
+    private void ClearText()
+    {
+        _content = string.Empty;
+        ThrottleSendUpdate();
+        StateHasChanged();
     }
 
     private void ThrottleSendUpdate()
