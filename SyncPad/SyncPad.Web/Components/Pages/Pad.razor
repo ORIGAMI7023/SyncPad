@@ -811,15 +811,26 @@
     {
         _showDropIndicator = false;
 
+        // 保存拖动的文件引用（因为 finally 会清空它）
+        var draggedFile = _draggedFile;
+
         try
         {
-            if (_draggedFile == null)
+            if (draggedFile == null)
             {
                 Console.WriteLine("OnGridDrop: _draggedFile 为 null");
                 return;
             }
 
             Console.WriteLine($"OnGridDrop: 拖放事件触发，OffsetX={e.OffsetX}, OffsetY={e.OffsetY}");
+            Console.WriteLine($"OnGridDrop: 拖动文件={draggedFile.File?.FileName ?? "null"}");
+
+            // 检查 File 对象
+            if (draggedFile.File == null)
+            {
+                Console.WriteLine("OnGridDrop: draggedFile.File 为 null");
+                return;
+            }
 
             // 计算目标网格位置
             var gridPos = CalculateGridPosition(e.OffsetX, e.OffsetY);
@@ -833,12 +844,14 @@
             }
 
             // 更新文件位置
-            await TextHubClient.UpdateFilePositionAsync(_draggedFile.File.Id, gridPos.X, gridPos.Y);
-            Console.WriteLine($"文件 {_draggedFile.File.FileName} 移动到 ({gridPos.X}, {gridPos.Y})");
+            Console.WriteLine($"OnGridDrop: 准备调用 UpdateFilePositionAsync, FileId={draggedFile.File.Id}");
+            await TextHubClient.UpdateFilePositionAsync(draggedFile.File.Id, gridPos.X, gridPos.Y);
+            Console.WriteLine($"OnGridDrop: 文件 {draggedFile.File.FileName} 已移动到 ({gridPos.X}, {gridPos.Y})");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"OnGridDrop 错误: {ex.Message}");
+            Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
             Console.WriteLine($"StackTrace: {ex.StackTrace}");
         }
         finally

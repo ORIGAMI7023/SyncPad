@@ -269,12 +269,18 @@ public class FileService : IFileService
             .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
 
         if (fileItem == null)
+        {
+            System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 文件未找到 fileId={fileId}, userId={userId}");
             return false;
+        }
+
+        System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 文件={fileItem.FileName}, 当前位置=({fileItem.PositionX},{fileItem.PositionY}), 新位置=({positionX},{positionY})");
 
         fileItem.PositionX = positionX;
         fileItem.PositionY = positionY;
 
         await _context.SaveChangesAsync();
+        System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 更新完成");
         return true;
     }
 
