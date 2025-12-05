@@ -570,6 +570,63 @@ public class PadViewModel : BaseViewModel, IDisposable
         });
     }
 
+    #region 拖放支持
+
+    /// <summary>
+    /// 交换两个文件的位置
+    /// </summary>
+    public async Task SwapFilePositionsAsync(SelectableFileItem draggedItem, SelectableFileItem targetItem)
+    {
+        try
+        {
+            var draggedIndex = Files.IndexOf(draggedItem);
+            var targetIndex = Files.IndexOf(targetItem);
+
+            if (draggedIndex < 0 || targetIndex < 0)
+                return;
+
+            // 在列表中交换位置
+            Files.Move(draggedIndex, targetIndex);
+
+            // 通知服务器更新位置
+            await _textHubClient.UpdateFilePositionAsync(draggedItem.Id, targetIndex, 0);
+            await _textHubClient.UpdateFilePositionAsync(targetItem.Id, draggedIndex, 0);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"交换文件位置失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 检查文件是否存在
+    /// </summary>
+    public async Task<bool> FileExistsAsync(string fileName)
+    {
+        return await _fileClient.FileExistsAsync(fileName);
+    }
+
+    /// <summary>
+    /// 上传文件（供外部调用）
+    /// </summary>
+    public async Task UploadFileAsync(string fileName, Stream stream, string contentType, bool overwrite = false)
+    {
+        try
+        {
+            var response = await _fileClient.UploadFileAsync(fileName, stream, contentType, overwrite);
+            if (!response.Success)
+            {
+                await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
+        }
+    }
+
+    #endregion
+
     public void Dispose()
     {
         _textHubClient.ConnectionStateChanged -= OnConnectionStateChanged;

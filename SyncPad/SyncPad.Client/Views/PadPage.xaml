@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:SyncPad.Client.ViewModels"
              x:Class="SyncPad.Client.Views.PadPage"
+             x:Name="ThisPage"
              Title="SyncPad">
 
     <!-- 桌面端：侧边栏布局 | 移动端：标签页切换 -->
@@ -155,8 +156,13 @@
                         Padding="10,5"/>
             </Grid>
 
-            <!-- 文件网格（8列布局） -->
-            <ScrollView Grid.Row="1">
+            <!-- 文件网格（4列布局） -->
+            <ScrollView Grid.Row="1" x:Name="FileDropZone">
+                <ScrollView.GestureRecognizers>
+                    <DropGestureRecognizer AllowDrop="True"
+                                          DragOver="OnFileDragOver"
+                                          Drop="OnFileDrop"/>
+                </ScrollView.GestureRecognizers>
                 <StackLayout>
                     <!-- 空状态 -->
                     <StackLayout Padding="20" VerticalOptions="Center" IsVisible="{Binding HasNoFiles}">
@@ -169,7 +175,8 @@
                     <!-- 文件网格 -->
                     <CollectionView ItemsSource="{Binding Files}"
                                   SelectionMode="None"
-                                  IsVisible="{Binding HasFiles}">
+                                  IsVisible="{Binding HasFiles}"
+                                  x:Name="FileCollectionView">
                         <CollectionView.ItemsLayout>
                             <GridItemsLayout Orientation="Vertical"
                                            Span="4"
@@ -188,6 +195,14 @@
                                     <Frame.BackgroundColor>
                                         <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                     </Frame.BackgroundColor>
+                                    <Frame.GestureRecognizers>
+                                        <DragGestureRecognizer CanDrag="True"
+                                                              DragStarting="OnDragStarting"
+                                                              DropCompleted="OnDropCompleted"/>
+                                        <DropGestureRecognizer AllowDrop="True"
+                                                              DragOver="OnCardDragOver"
+                                                              Drop="OnCardDrop"/>
+                                    </Frame.GestureRecognizers>
 
                                     <Grid RowSpacing="4">
                                         <Grid.RowDefinitions>
