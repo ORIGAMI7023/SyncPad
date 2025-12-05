@@ -663,11 +663,12 @@ public class PadViewModel : BaseViewModel, IDisposable
             if (file != null)
             {
                 var currentIndex = Files.IndexOf(file);
-                AddDebugLog($"文件位置变更: FileId={fileId}, FileName={file.FileName}, CurrentIndex={currentIndex}, NewPosition=({positionX},{positionY})");
+                AddDebugLog($"文件位置变更: FileId={fileId}, FileName={file.FileName}, CurrentPosition=({file.PositionX},{file.PositionY}), NewPosition=({positionX},{positionY})");
 
-                if (currentIndex >= 0 && positionX >= 0 && positionX < Files.Count && currentIndex != positionX)
+                // 检查位置是否真的变化了
+                if (file.PositionX != positionX || file.PositionY != positionY)
                 {
-                    // 更新位置：将文件从当前位置移动到新位置
+                    // 创建更新的文件项（保留其他状态）
                     var updatedDto = new FileItemDto
                     {
                         Id = file.Id,
@@ -687,14 +688,16 @@ public class PadViewModel : BaseViewModel, IDisposable
                         IsSelected = file.IsSelected
                     };
 
-                    // 先移除，再插入到新位置
-                    Files.RemoveAt(currentIndex);
-                    Files.Insert(positionX, updatedItem);
-                    AddDebugLog($"文件已移动: {currentIndex} -> {positionX}");
+                    // 替换列表中的文件项
+                    if (currentIndex >= 0)
+                    {
+                        Files[currentIndex] = updatedItem;
+                        AddDebugLog($"文件位置已更新: ({file.PositionX},{file.PositionY}) -> ({positionX},{positionY})");
+                    }
                 }
                 else
                 {
-                    AddDebugLog($"位置未变更或无效: CurrentIndex={currentIndex}, NewPosition={positionX}, FilesCount={Files.Count}");
+                    AddDebugLog($"位置未变更: 当前位置=({file.PositionX},{file.PositionY})");
                 }
             }
             else
