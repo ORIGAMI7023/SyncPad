@@ -1,5 +1,8 @@
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using WinDataPackage = Windows.ApplicationModel.DataTransfer.DataPackage;
+using WinDataPackageOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation;
+using WinClipboard = Windows.ApplicationModel.DataTransfer.Clipboard;
 
 namespace SyncPad.Client.Platforms.Windows;
 
@@ -21,8 +24,8 @@ public static class ClipboardService
             if (paths.Length == 0)
                 return false;
 
-            var dataPackage = new DataPackage();
-            dataPackage.RequestedOperation = DataPackageOperation.Copy;
+            var dataPackage = new WinDataPackage();
+            dataPackage.RequestedOperation = WinDataPackageOperation.Copy;
 
             // 异步获取 StorageFile 对象
             var task = Task.Run(async () =>
@@ -48,7 +51,7 @@ public static class ClipboardService
                 return false;
 
             dataPackage.SetStorageItems(files);
-            Clipboard.SetContent(dataPackage);
+            WinClipboard.SetContent(dataPackage);
 
             System.Diagnostics.Debug.WriteLine($"[ClipboardService] 已复制 {files.Count} 个文件到剪贴板");
             return true;
