@@ -847,6 +847,32 @@
             Console.WriteLine($"OnGridDrop: 准备调用 UpdateFilePositionAsync, FileId={draggedFile.File.Id}");
             await TextHubClient.UpdateFilePositionAsync(draggedFile.File.Id, gridPos.X, gridPos.Y);
             Console.WriteLine($"OnGridDrop: 文件 {draggedFile.File.FileName} 已移动到 ({gridPos.X}, {gridPos.Y})");
+
+            // 立即更新本地文件位置（不等待 SignalR 回调）
+            var updatedDto = new FileItemDto
+            {
+                Id = draggedFile.File.Id,
+                FileName = draggedFile.File.FileName,
+                FileSize = draggedFile.File.FileSize,
+                MimeType = draggedFile.File.MimeType,
+                UploadedAt = draggedFile.File.UploadedAt,
+                ExpiresAt = draggedFile.File.ExpiresAt,
+                PositionX = gridPos.X,
+                PositionY = gridPos.Y
+            };
+
+            var index = _files.IndexOf(draggedFile);
+            if (index >= 0)
+            {
+                var updatedItem = new SelectableFileItemWeb(updatedDto)
+                {
+                    Status = draggedFile.Status,
+                    DownloadProgress = draggedFile.DownloadProgress,
+                    IsSelected = draggedFile.IsSelected
+                };
+                _files[index] = updatedItem;
+                Console.WriteLine($"OnGridDrop: 本地文件位置已更新");
+            }
         }
         catch (Exception ex)
         {
