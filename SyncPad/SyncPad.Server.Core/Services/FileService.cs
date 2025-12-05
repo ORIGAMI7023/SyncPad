@@ -26,8 +26,65 @@ public class FileService : IFileService
 
     public async Task<List<FileItemDto>> GetFilesAsync(int userId)
     {
-        return await _context.FileItems
+        var files = await _context.FileItems
             .Where(f => f.UserId == userId && !f.IsDeleted)
+            .ToListAsync();
+
+        // 检查并修复没有有效位置的文件
+        bool needsSave = false;
+        var occupiedPositions = new HashSet<(int, int)>();
+
+        // 先收集所有有效位置
+        foreach (var file in files)
+        {
+            if (file.PositionX >= 0 && file.PositionY >= 0)
+            {
+                occupiedPositions.Add((file.PositionX, file.PositionY));
+            }
+        }
+
+        // 为没有有效位置的文件分配位置
+        const int maxColumns = 4;
+        foreach (var file in files)
+        {
+            if (file.PositionX < 0 || file.PositionY < 0)
+            {
+                // 查找下一个可用位置
+                (int x, int y) = (0, 0);
+                bool found = false;
+
+                for (int row = 0; row < 1000 && !found; row++)
+                {
+                    for (int col = 0; col < maxColumns; col++)
+                    {
+                        if (!occupiedPositions.Contains((col, row)))
+                        {
+                            x = col;
+                            y = row;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                file.PositionX = x;
+                file.PositionY = y;
+                occupiedPositions.Add((x, y));
+                needsSave = true;
+
+                System.Diagnostics.Debug.WriteLine($"GetFilesAsync: 为文件 {file.FileName} 分配位置 ({x},{y})");
+            }
+        }
+
+        // 保存位置更新
+        if (needsSave)
+        {
+            await _context.SaveChangesAsync();
+            System.Diagnostics.Debug.WriteLine($"GetFilesAsync: 已保存 {files.Count(f => f.PositionX >= 0 && f.PositionY >= 0)} 个文件的位置");
+        }
+
+        // 返回排序后的文件列表
+        return files
             .OrderBy(f => f.PositionY)
             .ThenBy(f => f.PositionX)
             .Select(f => new FileItemDto
@@ -41,7 +98,7 @@ public class FileService : IFileService
                 PositionX = f.PositionX,
                 PositionY = f.PositionY
             })
-            .ToListAsync();
+            .ToList();
     }
 
     public async Task<bool> FileExistsAsync(int userId, string fileName)
