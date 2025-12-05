@@ -15,6 +15,9 @@
             <converters:StringToBoolConverter x:Key="StringToBoolConverter"/>
             <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <converters:BoolToColorConverter x:Key="BoolToColorConverter"/>
+            <converters:BoolToBorderColorConverter x:Key="BoolToBorderColorConverter"/>
+            <converters:StringNotEmptyConverter x:Key="StringNotEmptyConverter"/>
+            <converters:PercentToProgressConverter x:Key="PercentToProgressConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

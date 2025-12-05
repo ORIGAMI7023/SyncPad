@@ -114,6 +114,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
         _textHubClient.TextUpdateReceived += OnTextUpdateReceived;
         _textHubClient.FileUpdateReceived += OnFileUpdateReceived;
+        _textHubClient.FilePositionChanged += OnFilePositionChanged;
     }
 
     public async Task InitializeAsync()
@@ -483,11 +484,51 @@ public class PadViewModel : BaseViewModel, IDisposable
         });
     }
 
+    private void OnFilePositionChanged(int fileId, int positionX, int positionY)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var file = Files.FirstOrDefault(f => f.Id == fileId);
+            if (file != null)
+            {
+                // 更新位置信息（通过重新设置 File 对象的位置属性）
+                // 注意：由于 File 是只读的 FileItemDto，我们需要更新其内部值
+                // 这里通过反射或直接访问 File 的属性来更新
+                // 简单起见，我们重新创建 SelectableFileItem
+                var index = Files.IndexOf(file);
+                if (index >= 0)
+                {
+                    var updatedDto = new FileItemDto
+                    {
+                        Id = file.Id,
+                        FileName = file.FileName,
+                        FileSize = file.FileSize,
+                        MimeType = file.MimeType,
+                        UploadedAt = file.UploadedAt,
+                        ExpiresAt = file.ExpiresAt,
+                        PositionX = positionX,
+                        PositionY = positionY
+                    };
+
+                    var updatedItem = new SelectableFileItem(updatedDto)
+                    {
+                        Status = file.Status,
+                        DownloadProgress = file.DownloadProgress,
+                        IsSelected = file.IsSelected
+                    };
+
+                    Files[index] = updatedItem;
+                }
+            }
+        });
+    }
+
     public void Dispose()
     {
         _textHubClient.ConnectionStateChanged -= OnConnectionStateChanged;
         _textHubClient.TextUpdateReceived -= OnTextUpdateReceived;
         _textHubClient.FileUpdateReceived -= OnFileUpdateReceived;
+        _textHubClient.FilePositionChanged -= OnFilePositionChanged;
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
     }
