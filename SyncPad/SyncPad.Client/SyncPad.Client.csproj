@@ -48,6 +48,9 @@
 
 		<!-- Mac Catalyst 代码签名配置（开发模式） -->
 		<EnableCodeSigning Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">false</EnableCodeSigning>
+
+		<!-- iOS 代码签名配置（使用全能签，禁用 Xcode 签名） -->
+		<EnableCodeSigning Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">false</EnableCodeSigning>
 	</PropertyGroup>
 
 	<ItemGroup>
