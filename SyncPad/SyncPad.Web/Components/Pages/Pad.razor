@@ -42,7 +42,7 @@
                       @bind:event="oninput"
                       @bind:after="HandleTextInput"
                       @onpaste="HandleTextPaste"
-                      autocomplete="one-time-code"
+                      autocomplete="off"
                       autocorrect="off"
                       autocapitalize="off"
                       spellcheck="false"
@@ -655,12 +655,28 @@
     {
         if (!_isUpdatingFromServer)
         {
-            // 延迟一小段时间让浏览器完成粘贴操作，然后触发同步
-            Task.Delay(50).ContinueWith(_ =>
+            // 延迟一小段时间让浏览器完成粘贴操作，然后从 DOM 读取最新值并同步
+            Task.Delay(100).ContinueWith(async _ =>
             {
-                InvokeAsync(() =>
+                await InvokeAsync(async () =>
                 {
-                    ThrottleSendUpdate();
+                    try
+                    {
+                        // 从 DOM 中读取最新的文本内容
+                        var latestContent = await JSRuntime.InvokeAsync<string>("eval",
+                            "document.getElementById('syncpad-textarea')?.value || ''");
+
+                        // 更新绑定字段
+                        _content = latestContent;
+
+                        // 触发同步
+                        ThrottleSendUpdate();
+                        StateHasChanged();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"粘贴同步失败: {ex.Message}");
+                    }
                 });
             });
         }

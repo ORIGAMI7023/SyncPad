@@ -520,6 +520,28 @@ public partial class PadPage : ContentPage
 
     #endregion
 
+    #region 文本编辑事件
+
+    /// <summary>
+    /// 处理 Editor 的 TextChanged 事件，确保粘贴等操作能触发同步
+    /// </summary>
+    private void OnEditorTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        // 确保 ViewModel 的 Content 属性与 Editor 的实际文本同步
+        // 这样可以修复移动端长按粘贴后不同步的问题
+        if (sender is Editor editor && !string.IsNullOrEmpty(e.NewTextValue))
+        {
+            // 只有当新值与 ViewModel 的值不同时才更新
+            // 避免触发循环更新
+            if (_viewModel.Content != e.NewTextValue)
+            {
+                _viewModel.Content = e.NewTextValue;
+            }
+        }
+    }
+
+    #endregion
+
     // 框选功能待后续实现，MAUI CollectionView 不易获取项目位置
 
     #region 键盘事件（用于检测 Ctrl/Shift）

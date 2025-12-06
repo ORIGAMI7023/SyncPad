@@ -76,7 +76,9 @@
 
             <!-- 文本编辑区域 -->
             <Editor Grid.Row="1"
+                    x:Name="MainEditor"
                     Text="{Binding Content, Mode=TwoWay}"
+                    TextChanged="OnEditorTextChanged"
                     Placeholder="在这里输入文本..."
                     FontSize="16"
                     Margin="10">
@@ -451,7 +453,9 @@
                     </Grid>
 
                     <Editor Grid.Row="1"
+                            x:Name="MobileEditor"
                             Text="{Binding Content, Mode=TwoWay}"
+                            TextChanged="OnEditorTextChanged"
                             Placeholder="在这里输入文本..."
                             FontSize="16"
                             Margin="10">
