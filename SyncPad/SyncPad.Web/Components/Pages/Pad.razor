@@ -29,7 +29,6 @@
         <div class="mobile-edit-toolbar">
             <button class="btn-mobile" @onclick="SelectAllText">全选</button>
             <button class="btn-mobile" @onclick="CopyText">复制</button>
-            <button class="btn-mobile" @onclick="PasteText">粘贴</button>
             <button class="btn-mobile btn-delete" @onclick="ClearText">清空</button>
         </div>
 
@@ -733,44 +732,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"复制失败: {ex.Message}");
-        }
-    }
-
-    // 移动端工具栏按钮：粘贴
-    private async Task PasteText()
-    {
-        try
-        {
-            // iOS 要求 clipboard API 必须在用户手势中直接调用
-            // 如果失败，聚焦文本框并提示用户手动粘贴
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                (async function() {
-                    var textarea = document.getElementById('syncpad-textarea');
-                    if (!textarea) return;
-
-                    textarea.focus();
-
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.readText) {
-                            var text = await navigator.clipboard.readText();
-                            if (text) {
-                                textarea.value = text;
-                                textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                                return;
-                            }
-                        }
-                    } catch (err) {
-                        // iOS 限制，降级处理
-                    }
-
-                    // 降级：提示用户手动粘贴
-                    alert('iOS 限制了自动粘贴，请在输入框内【长按】并选择【粘贴】');
-                })();
-            ");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"粘贴失败: {ex.Message}");
         }
     }
 
