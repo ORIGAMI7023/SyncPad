@@ -72,7 +72,7 @@ public class AuthService : IAuthService
                 ValidIssuer = _configuration["Jwt:Issuer"] ?? "SyncPad",
                 ValidateAudience = true,
                 ValidAudience = _configuration["Jwt:Audience"] ?? "SyncPadUsers",
-                ValidateLifetime = true,
+                ValidateLifetime = false, // 不验证过期时间
                 ClockSkew = TimeSpan.Zero
             }, out var validatedToken);
 
@@ -108,7 +108,7 @@ public class AuthService : IAuthService
             issuer: _configuration["Jwt:Issuer"] ?? "SyncPad",
             audience: _configuration["Jwt:Audience"] ?? "SyncPadUsers",
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(7), // Token 有效期 7 天
+            expires: null, // Token 永不过期
             signingCredentials: credentials
         );
 

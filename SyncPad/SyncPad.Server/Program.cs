@@ -34,7 +34,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtIssuer,
             ValidateAudience = true,
             ValidAudience = jwtAudience,
-            ValidateLifetime = true,
+            ValidateLifetime = false, // 不验证过期时间
             ClockSkew = TimeSpan.Zero
         };
 

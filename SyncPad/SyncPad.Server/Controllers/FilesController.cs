@@ -168,7 +168,7 @@ public class FilesController : ControllerBase
                 ValidIssuer = _configuration["Jwt:Issuer"],
                 ValidateAudience = true,
                 ValidAudience = _configuration["Jwt:Audience"],
-                ValidateLifetime = true,
+                ValidateLifetime = false, // 不验证过期时间
                 ClockSkew = TimeSpan.Zero
             };
 
