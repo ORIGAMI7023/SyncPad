@@ -54,10 +54,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- App Icon - 使用新的 appstore.svg -->
-		<MauiIcon Include="Resources\AppIcon\appstore.svg" />
+		<!-- App Icon - 使用新的 PNG 图标 -->
+		<MauiIcon Include="Resources\AppIcon\newappicon.png" />
 
-		<!-- 备用：原 SVG 配置（已替换） -->
+		<!-- 备用：旧 SVG 配置（已替换） -->
+		<!-- <MauiIcon Include="Resources\AppIcon\appstore.svg" /> -->
 		<!-- <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" /> -->
 
 		<!-- Splash Screen -->
