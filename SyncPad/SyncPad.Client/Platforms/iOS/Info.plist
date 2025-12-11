@@ -27,7 +27,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>XSAppIconAssets</key>
-	<string>Assets.xcassets/appicon.appiconset</string>
+	<string>Assets.xcassets/newappicon.appiconset</string>
 	<!-- 网络权限配置 -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
