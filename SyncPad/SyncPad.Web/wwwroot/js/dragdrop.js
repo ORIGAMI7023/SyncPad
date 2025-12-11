@@ -100,5 +100,21 @@ window.DragDropInterop = {
         document.addEventListener('click', () => {
             dotNetRef.invokeMethodAsync('HideContextMenu');
         });
+    },
+
+    // 初始化键盘快捷键支持
+    initKeyboardShortcuts: function (dotNetRef) {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+A 全选
+            if (e.ctrlKey && e.key === 'a') {
+                e.preventDefault();
+                dotNetRef.invokeMethodAsync('SelectAllFiles');
+            }
+            // Delete 删除选中文件
+            else if (e.key === 'Delete') {
+                e.preventDefault();
+                dotNetRef.invokeMethodAsync('DeleteSelectedFiles');
+            }
+        });
     }
 };

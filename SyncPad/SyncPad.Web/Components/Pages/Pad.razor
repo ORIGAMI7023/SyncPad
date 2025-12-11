@@ -622,6 +622,9 @@
             _contextMenuDotNetRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("DragDropInterop.initContextMenu", _fileGridRef, _contextMenuDotNetRef);
 
+            // 初始化键盘快捷键的 JS 互操作
+            await JSRuntime.InvokeVoidAsync("DragDropInterop.initKeyboardShortcuts", _contextMenuDotNetRef);
+
             // 连接 SignalR
             await ConnectToHub();
 
@@ -1023,6 +1026,28 @@
     {
         _contextMenuVisible = false;
         StateHasChanged();
+    }
+
+    // 键盘快捷键：全选所有文件（通过 JS 互操作调用）
+    [JSInvokable]
+    public void SelectAllFiles()
+    {
+        foreach (var file in _files)
+        {
+            file.IsSelected = true;
+        }
+        StateHasChanged();
+    }
+
+    // 键盘快捷键：删除选中的文件（通过 JS 互操作调用）
+    [JSInvokable]
+    public async Task DeleteSelectedFiles()
+    {
+        var selectedFiles = _files.Where(f => f.IsSelected).ToList();
+        foreach (var file in selectedFiles)
+        {
+            await DeleteFile(file);
+        }
     }
 
     // 从右键菜单删除文件（无需确认）

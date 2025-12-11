@@ -168,6 +168,8 @@
                     <DropGestureRecognizer AllowDrop="True"
                                           DragOver="OnFileDragOver"
                                           Drop="OnFileDrop"/>
+                    <!-- 点击空白处取消选择 -->
+                    <TapGestureRecognizer Tapped="OnFileAreaTapped"/>
                 </Grid.GestureRecognizers>
 
                 <!-- 空状态 -->
@@ -183,11 +185,12 @@
                            Margin="0,8,0,0"/>
                 </StackLayout>
 
-                <!-- 文件自由网格 -->
-                <controls:FileGridView ItemsSource="{Binding Files}"
-                                      IsVisible="{Binding HasFiles}"
-                                      x:Name="FileGridView">
-                    <!-- 移除 DropGestureRecognizer，使用 Windows 原生拖放处理 -->
+                <!-- 滚动容器 -->
+                <ScrollView IsVisible="{Binding HasFiles}" Orientation="Vertical">
+                    <!-- 文件自由网格 -->
+                    <controls:FileGridView ItemsSource="{Binding Files}"
+                                          x:Name="FileGridView">
+                        <!-- 移除 DropGestureRecognizer，使用 Windows 原生拖放处理 -->
 
                     <controls:FileGridView.ItemTemplate>
                         <DataTemplate>
@@ -299,8 +302,9 @@
                                 </Grid>
                             </Frame>
                         </DataTemplate>
-                    </controls:FileGridView.ItemTemplate>
-                </controls:FileGridView>
+                        </controls:FileGridView.ItemTemplate>
+                    </controls:FileGridView>
+                </ScrollView>
             </Grid>
 
             <!-- 批量操作工具栏 -->
