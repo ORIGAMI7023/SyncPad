@@ -13,7 +13,7 @@ public static class DragDropHandler
     /// 为 MAUI 控件设置 Windows 原生拖放支持（拖入）
     /// </summary>
     public static void SetupDropTarget(Microsoft.Maui.Controls.View mauiView,
-        Func<IReadOnlyList<StorageFile>, Task> onFilesDropped,
+        Func<IReadOnlyList<StorageFile>, double, double, Task> onFilesDropped,
         Func<int, double, double, Task>? onInternalDrop = null,
         Action<double, double>? onDragOver = null,
         Action? onDragLeave = null)
@@ -99,8 +99,10 @@ public static class DragDropHandler
                         var files = items.OfType<StorageFile>().ToList();
                         if (files.Count > 0)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[DragDropHandler] 处理 {files.Count} 个外部文件");
-                            await onFilesDropped(files);
+                            // 获取拖放位置
+                            var position = args.GetPosition(sender as UIElement);
+                            System.Diagnostics.Debug.WriteLine($"[DragDropHandler] 处理 {files.Count} 个外部文件，位置=({position.X}, {position.Y})");
+                            await onFilesDropped(files, position.X, position.Y);
                         }
                         args.Handled = true;
                     }

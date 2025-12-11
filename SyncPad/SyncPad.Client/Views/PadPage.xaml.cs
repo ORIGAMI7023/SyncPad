@@ -57,11 +57,14 @@ public partial class PadPage : ContentPage
         // 为外层 Grid 设置拖放支持（处理空状态）
         DragDropHandler.SetupDropTarget(
             FileAreaGrid,
-            onFilesDropped: async (files) =>
+            onFilesDropped: async (files, x, y) =>
             {
+                // 计算网格位置
+                var (gridX, gridY) = CalculateGridPosition(x, y);
+
                 foreach (var file in files)
                 {
-                    await UploadStorageFileAsync(file);
+                    await UploadStorageFileAsync(file, gridX, gridY);
                 }
             },
             onInternalDrop: null, // 外层不处理内部拖动
@@ -73,11 +76,14 @@ public partial class PadPage : ContentPage
         DragDropHandler.SetupDropTarget(
             FileGridView,
             // 外部文件拖入回调
-            onFilesDropped: async (files) =>
+            onFilesDropped: async (files, x, y) =>
             {
+                // 计算网格位置
+                var (gridX, gridY) = CalculateGridPosition(x, y);
+
                 foreach (var file in files)
                 {
-                    await UploadStorageFileAsync(file);
+                    await UploadStorageFileAsync(file, gridX, gridY);
                 }
             },
             // 内部拖放回调
@@ -120,7 +126,7 @@ public partial class PadPage : ContentPage
         );
     }
 
-    private async Task UploadStorageFileAsync(StorageFile storageFile)
+    private async Task UploadStorageFileAsync(StorageFile storageFile, int? gridX = null, int? gridY = null)
     {
         try
         {
@@ -141,6 +147,21 @@ public partial class PadPage : ContentPage
             }
 
             await _viewModel.UploadFileAsync(storageFile.Name, stream, contentType, exists);
+
+            // 如果指定了位置，上传完成后设置文件位置
+            if (gridX.HasValue && gridY.HasValue)
+            {
+                // 等待一小段时间让文件上传完成并同步
+                await Task.Delay(500);
+
+                // 查找刚上传的文件
+                var uploadedFile = _viewModel.Files.FirstOrDefault(f => f.FileName == storageFile.Name);
+                if (uploadedFile != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[拖放上传] 设置文件 {storageFile.Name} 位置到 ({gridX}, {gridY})");
+                    await _viewModel.UpdateFilePositionAsync(uploadedFile.Id, gridX.Value, gridY.Value);
+                }
+            }
         }
         catch (Exception ex)
         {

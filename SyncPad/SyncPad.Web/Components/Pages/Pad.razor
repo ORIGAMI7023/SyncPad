@@ -1187,10 +1187,14 @@
 
     // JS 互操作回调：外部文件拖入
     [JSInvokable]
-    public async Task OnFilesDropped(FileDropInfo[] files)
+    public async Task OnFilesDropped(FileDropInfo[] files, double offsetX, double offsetY)
     {
         if (files == null || files.Length == 0)
             return;
+
+        // 计算网格位置
+        var gridPos = CalculateGridPosition(offsetX, offsetY);
+        Console.WriteLine($"OnFilesDropped: 拖放位置=({offsetX}, {offsetY}), 网格位置=({gridPos.X}, {gridPos.Y})");
 
         for (int i = 0; i < files.Length; i++)
         {
@@ -1209,6 +1213,17 @@
 
                     // 上传文件
                     await FileClient.UploadFileAsync(fileData.Name, stream, fileData.Type, overwrite);
+
+                    // 等待文件同步
+                    await Task.Delay(500);
+
+                    // 查找刚上传的文件并设置位置
+                    var uploadedFile = _files.FirstOrDefault(f => f.File.FileName == fileData.Name);
+                    if (uploadedFile != null)
+                    {
+                        Console.WriteLine($"设置文件 {fileData.Name} 位置到 ({gridPos.X}, {gridPos.Y})");
+                        await TextHubClient.UpdateFilePositionAsync(uploadedFile.File.Id, gridPos.X, gridPos.Y);
+                    }
                 }
             }
             catch (Exception ex)
