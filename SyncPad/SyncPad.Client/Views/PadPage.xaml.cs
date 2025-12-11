@@ -669,6 +669,42 @@ public partial class PadPage : ContentPage
 
     #endregion
 
+    #region 右键菜单事件
+
+    private void OnContextMenuOpen(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.OpenFileCommand.Execute(file);
+        }
+    }
+
+    private void OnContextMenuCopy(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.CopyFileCommand.Execute(file);
+        }
+    }
+
+    private void OnContextMenuExport(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.ExportFileCommand.Execute(file);
+        }
+    }
+
+    private async void OnContextMenuDelete(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            await _viewModel.DeleteFileAsync(file);
+        }
+    }
+
+    #endregion
+
     #region 文本编辑事件
 
     /// <summary>

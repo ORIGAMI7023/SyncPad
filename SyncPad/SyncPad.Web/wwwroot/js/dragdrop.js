@@ -69,5 +69,31 @@ window.DragDropInterop = {
     // 清理暂存的文件
     clearDroppedFiles: function () {
         window._droppedFiles = null;
+    },
+
+    // 初始化右键菜单支持
+    initContextMenu: function (containerElement, dotNetRef) {
+        if (!containerElement) return;
+
+        containerElement.addEventListener('contextmenu', (e) => {
+            // 查找最近的 .file-card 父元素
+            const fileCard = e.target.closest('.file-card');
+            if (fileCard) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 获取文件卡片的索引（通过 data-file-id 属性）
+                const fileId = parseInt(fileCard.getAttribute('data-file-id'));
+                if (!isNaN(fileId)) {
+                    // 通知 Blazor 显示菜单
+                    dotNetRef.invokeMethodAsync('ShowContextMenuJS', fileId, e.clientX, e.clientY);
+                }
+            }
+        });
+
+        // 点击任意位置隐藏菜单
+        document.addEventListener('click', () => {
+            dotNetRef.invokeMethodAsync('HideContextMenu');
+        });
     }
 };

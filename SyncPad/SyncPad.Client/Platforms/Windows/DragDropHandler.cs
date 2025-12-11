@@ -35,7 +35,7 @@ public static class DragDropHandler
                     // 内部拖动优先处理（有 Text 数据表示是我们的内部拖动）
                     if (hasTextData)
                     {
-                        args.AcceptedOperation = WinDataTransfer.DataPackageOperation.Move;
+                        args.AcceptedOperation = WinDataTransfer.DataPackageOperation.Copy;
                         args.DragUIOverride.Caption = "移动到此位置";
 
                         // 通知位置变化（显示指示器）

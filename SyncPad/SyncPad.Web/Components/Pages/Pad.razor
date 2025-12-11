@@ -87,15 +87,14 @@
                 @foreach (var file in _files)
                 {
                     <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "")"
+                         data-file-id="@file.File.Id"
                          style="left: @(file.File.PositionX * 122 + 10)px; top: @(file.File.PositionY * 122 + 10)px;"
                          draggable="true"
                          @ondragstart="(e) => OnDragStart(e, file)"
                          @ondragend="OnDragEnd"
                          @onclick="(e) => HandleFileClick(e, file)"
                          @onclick:stopPropagation="true"
-                         @ondblclick="() => DownloadFile(file)"
-                         @oncontextmenu="(e) => ShowContextMenu(e, file)"
-                         @oncontextmenu:preventDefault="true">
+                         @ondblclick="() => DownloadFile(file)">
                         <div class="file-icon-container">
                             <div class="file-icon">@file.FileIcon</div>
                             @if (!string.IsNullOrEmpty(file.StatusBadge))
@@ -588,6 +587,7 @@
     private int _contextMenuX = 0;
     private int _contextMenuY = 0;
     private SelectableFileItemWeb? _contextMenuFile = null;
+    private DotNetObjectReference<Pad>? _contextMenuDotNetRef;
 
     protected override void OnInitialized()
     {
@@ -617,6 +617,10 @@
             // 初始化拖放区域的 JS 互操作
             _dotNetRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("DragDropInterop.initDropZone", _fileGridRef, _dotNetRef);
+
+            // 初始化右键菜单的 JS 互操作
+            _contextMenuDotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("DragDropInterop.initContextMenu", _fileGridRef, _contextMenuDotNetRef);
 
             // 连接 SignalR
             await ConnectToHub();
@@ -996,13 +1000,28 @@
         StateHasChanged();
     }
 
-    // 显示右键菜单
-    private void ShowContextMenu(Microsoft.AspNetCore.Components.Web.MouseEventArgs e, SelectableFileItemWeb file)
+    // 显示右键菜单（通过 JS 互操作调用）
+    [JSInvokable]
+    public void ShowContextMenuJS(int fileId, double clientX, double clientY)
     {
-        _contextMenuFile = file;
-        _contextMenuX = (int)e.ClientX;
-        _contextMenuY = (int)e.ClientY;
-        _contextMenuVisible = true;
+        var file = _files.FirstOrDefault(f => f.File.Id == fileId);
+        if (file != null)
+        {
+            Console.WriteLine($"ShowContextMenuJS 被调用: 文件={file.File.FileName}, ClientX={clientX}, ClientY={clientY}");
+            _contextMenuFile = file;
+            _contextMenuX = (int)clientX;
+            _contextMenuY = (int)clientY;
+            _contextMenuVisible = true;
+            Console.WriteLine($"菜单状态: visible={_contextMenuVisible}, X={_contextMenuX}, Y={_contextMenuY}");
+            StateHasChanged();
+        }
+    }
+
+    // 隐藏右键菜单（通过 JS 互操作调用）
+    [JSInvokable]
+    public void HideContextMenu()
+    {
+        _contextMenuVisible = false;
         StateHasChanged();
     }
 
@@ -1077,6 +1096,13 @@
             // 计算目标网格位置
             var gridPos = CalculateGridPosition(e.OffsetX, e.OffsetY);
             Console.WriteLine($"OnGridDrop: 计算的网格位置=({gridPos.X}, {gridPos.Y})");
+
+            // 检查是否拖到原位置，如果是则直接返回
+            if (draggedFile.File.PositionX == gridPos.X && draggedFile.File.PositionY == gridPos.Y)
+            {
+                Console.WriteLine($"OnGridDrop: 文件被放回原位置，忽略更新");
+                return;
+            }
 
             // 检查 TextHubClient 是否为 null
             if (TextHubClient == null)
@@ -1282,6 +1308,7 @@
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
         _dotNetRef?.Dispose();
+        _contextMenuDotNetRef?.Dispose();
     }
 
     // Web 专用的可选择文件项

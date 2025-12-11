@@ -206,19 +206,11 @@
                                 <!-- 右键菜单 -->
                                 <FlyoutBase.ContextFlyout>
                                     <MenuFlyout>
-                                        <MenuFlyoutItem Text="打开"
-                                                      Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=OpenFileCommand}"
-                                                      CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="复制到剪贴板"
-                                                      Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=CopyFileCommand}"
-                                                      CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="导出..."
-                                                      Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=ExportFileCommand}"
-                                                      CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="复制到剪贴板" Clicked="OnContextMenuCopy" CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="导出..." Clicked="OnContextMenuExport" CommandParameter="{Binding .}"/>
                                         <MenuFlyoutSeparator/>
-                                        <MenuFlyoutItem Text="删除"
-                                                      Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=DeleteFileCommand}"
-                                                      CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                     </MenuFlyout>
                                 </FlyoutBase.ContextFlyout>
                                 <!-- Windows 平台使用原生拖放，移除 MAUI GestureRecognizer -->
@@ -593,12 +585,8 @@
                                             <!-- 右键菜单（移动端可能不显示，但保持一致） -->
                                             <FlyoutBase.ContextFlyout>
                                                 <MenuFlyout>
-                                                    <MenuFlyoutItem Text="打开"
-                                                                  Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=OpenFileCommand}"
-                                                                  CommandParameter="{Binding .}"/>
-                                                    <MenuFlyoutItem Text="删除"
-                                                                  Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=DeleteFileCommand}"
-                                                                  CommandParameter="{Binding .}"/>
+                                                    <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                                    <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                                 </MenuFlyout>
                                             </FlyoutBase.ContextFlyout>
 
