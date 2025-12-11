@@ -17,6 +17,9 @@ public class FileGridView : ScrollView
     // 拖放指示器
     private Frame? _dropIndicator;
 
+    // 跟踪文件ID到视图的映射，用于动画
+    private readonly Dictionary<int, View> _itemViews = new();
+
     public static readonly BindableProperty ItemsSourceProperty = BindableProperty.Create(
         nameof(ItemsSource),
         typeof(IEnumerable<SelectableFileItem>),
@@ -100,6 +103,27 @@ public class FileGridView : ScrollView
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        // 对于替换操作，检查是否只是位置变化，如果是则使用动画
+        if (e.Action == NotifyCollectionChangedAction.Replace &&
+            e.NewItems != null && e.OldItems != null &&
+            e.NewItems.Count == 1 && e.OldItems.Count == 1)
+        {
+            var oldItem = e.OldItems[0] as SelectableFileItem;
+            var newItem = e.NewItems[0] as SelectableFileItem;
+
+            if (oldItem != null && newItem != null && oldItem.Id == newItem.Id)
+            {
+                // 同一文件，检查位置是否变化
+                if (oldItem.PositionX != newItem.PositionX || oldItem.PositionY != newItem.PositionY)
+                {
+                    // 只是位置变化，使用动画更新
+                    AnimateItemPosition(newItem, e.NewStartingIndex);
+                    return;
+                }
+            }
+        }
+
+        // 其他情况，完全重建
         RebuildGrid();
     }
 
@@ -108,11 +132,13 @@ public class FileGridView : ScrollView
         if (ItemsSource == null || ItemTemplate == null)
         {
             _grid.Children.Clear();
+            _itemViews.Clear();
             return;
         }
 
         _grid.Children.Clear();
         _grid.RowDefinitions.Clear();
+        _itemViews.Clear();
 
         // 计算需要的最大行数
         int maxRow = 0;
@@ -156,7 +182,58 @@ public class FileGridView : ScrollView
             Grid.SetRow(view, item.PositionY);
 
             _grid.Children.Add(view);
+
+            // 跟踪视图
+            _itemViews[item.Id] = view;
         }
+    }
+
+    /// <summary>
+    /// 使用动画更新文件位置
+    /// </summary>
+    private async void AnimateItemPosition(SelectableFileItem item, int itemIndex)
+    {
+        // 查找对应的视图
+        if (!_itemViews.TryGetValue(item.Id, out var view))
+        {
+            // 视图不存在，回退到完全重建
+            RebuildGrid();
+            return;
+        }
+
+        // 确保有足够的行
+        int requiredRows = Math.Max(item.PositionY + 1, 10);
+        while (_grid.RowDefinitions.Count < requiredRows)
+        {
+            _grid.RowDefinitions.Add(new RowDefinition { Height = CellHeight });
+        }
+
+        // 获取当前位置
+        int oldColumn = Grid.GetColumn(view);
+        int oldRow = Grid.GetRow(view);
+
+        System.Diagnostics.Debug.WriteLine($"[FileGridView] 动画移动: {item.FileName} 从 ({oldColumn},{oldRow}) 到 ({item.PositionX},{item.PositionY})");
+
+        // 如果位置没变，不需要动画
+        if (oldColumn == item.PositionX && oldRow == item.PositionY)
+        {
+            return;
+        }
+
+        // 计算移动距离
+        double deltaX = (item.PositionX - oldColumn) * (CellWidth + _grid.ColumnSpacing);
+        double deltaY = (item.PositionY - oldRow) * (CellHeight + _grid.RowSpacing);
+
+        // 先更新 Grid 位置（这样布局引擎知道新位置）
+        Grid.SetColumn(view, item.PositionX);
+        Grid.SetRow(view, item.PositionY);
+
+        // 使用 TranslationX/Y 偏移到旧位置
+        view.TranslationX = -deltaX;
+        view.TranslationY = -deltaY;
+
+        // 动画回到新位置（Translation 归零）
+        await view.TranslateTo(0, 0, 250, Easing.CubicOut);
     }
 
     /// <summary>

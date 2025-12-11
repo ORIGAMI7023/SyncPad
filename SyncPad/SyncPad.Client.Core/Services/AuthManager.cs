@@ -12,9 +12,9 @@ public class AuthManager : IAuthManager
 
     // 服务器地址（根据编译配置切换）
 #if DEBUG
-    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
+    private readonly string _baseUrl = "https://localhost:7167";  // 本地调试（使用 HTTPS）
 #else
-    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
+    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";  // 生产环境
 #endif
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);
@@ -71,6 +71,10 @@ public class AuthManager : IAuthManager
     public async Task<bool> TryRestoreSessionAsync()
     {
         var (token, username, userId) = await _tokenStorage.GetTokenAsync();
+
+        System.Diagnostics.Debug.WriteLine($"[AuthManager] TryRestoreSessionAsync - Token: {(string.IsNullOrEmpty(token) ? "null" : token[..Math.Min(20, token.Length)])}...");
+        System.Diagnostics.Debug.WriteLine($"[AuthManager] TryRestoreSessionAsync - Username: {username}, UserId: {userId}");
+        System.Diagnostics.Debug.WriteLine($"[AuthManager] TryRestoreSessionAsync - BaseUrl: {_baseUrl}");
 
         if (!string.IsNullOrEmpty(token))
         {

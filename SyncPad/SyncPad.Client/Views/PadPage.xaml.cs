@@ -54,6 +54,21 @@ public partial class PadPage : ContentPage
 #if WINDOWS
     private void SetupWindowsDragDrop()
     {
+        // 为外层 Grid 设置拖放支持（处理空状态）
+        DragDropHandler.SetupDropTarget(
+            FileAreaGrid,
+            onFilesDropped: async (files) =>
+            {
+                foreach (var file in files)
+                {
+                    await UploadStorageFileAsync(file);
+                }
+            },
+            onInternalDrop: null, // 外层不处理内部拖动
+            onDragOver: null,
+            onDragLeave: null
+        );
+
         // 为文件区域设置拖入支持（支持外部文件拖入和内部文件重排）
         DragDropHandler.SetupDropTarget(
             FileGridView,
@@ -71,15 +86,15 @@ public partial class PadPage : ContentPage
                 // 查找被拖动的文件
                 var draggedFile = _viewModel.Files.FirstOrDefault(f => f.Id == fileId);
 
-                // 计算网格位置
-                var (targetX, targetY) = CalculateGridPosition(x, y);
+                // 计算网格位置（排除被拖动文件自身，避免碰撞检测误判）
+                var (targetX, targetY) = CalculateGridPosition(x, y, fileId);
 
-                // 更新文件位置
+                System.Diagnostics.Debug.WriteLine($"[拖放] 文件 {fileId} 拖到 ({x:F1}, {y:F1}) -> 最终位置 ({targetX}, {targetY})");
+
+                // 更新文件位置（会触发 SignalR 回调，自动使用动画更新）
                 await _viewModel.UpdateFilePositionAsync(fileId, targetX, targetY);
 
-                await Task.Delay(300);
-
-                await _viewModel.RefreshFilesAsync();
+                // 不再刷新文件列表，让 SignalR 回调处理更新（会触发动画）
             },
             // DragOver 回调（显示指示器）
             onDragOver: (x, y) =>
@@ -107,13 +122,14 @@ public partial class PadPage : ContentPage
             using var stream = await storageFile.OpenStreamForReadAsync();
             var contentType = storageFile.ContentType ?? "application/octet-stream";
 
-            // 检查是否存在同名文件
+            // 检查是否存在同名文件（服务器端检查）
             bool exists = await _viewModel.FileExistsAsync(storageFile.Name);
 
             if (exists)
             {
                 var confirm = await DisplayAlert("文件已存在",
-                    $"文件 \"{storageFile.Name}\" 已存在，是否覆盖？",
+                    $"服务器上已存在文件 \"{storageFile.Name}\"，是否覆盖？\n\n" +
+                    $"（如果看不到该文件，请尝试刷新页面）",
                     "覆盖", "取消");
                 if (!confirm)
                     return;
@@ -356,7 +372,7 @@ public partial class PadPage : ContentPage
     /// <summary>
     /// 从原始坐标计算网格位置（用于 Windows 原生拖放）
     /// </summary>
-    private (int X, int Y) CalculateGridPosition(double x, double y)
+    private (int X, int Y) CalculateGridPosition(double x, double y, int? excludeFileId = null)
     {
         const int columns = 4;
         const double cellWidth = 120;
@@ -370,13 +386,136 @@ public partial class PadPage : ContentPage
         if (column >= columns) column = columns - 1;
         if (row < 0) row = 0;
 
-        return (column, row);
+        // 检查碰撞并找到最近的空位置
+        var finalPosition = FindNearestEmptyPosition(column, row, excludeFileId);
+        return finalPosition;
+    }
+
+    /// <summary>
+    /// 检查指定位置是否被占用（排除指定文件ID）
+    /// </summary>
+    private bool IsPositionOccupied(int x, int y, int? excludeFileId = null)
+    {
+        return _viewModel.Files.Any(f =>
+            f.PositionX == x &&
+            f.PositionY == y &&
+            (!excludeFileId.HasValue || f.Id != excludeFileId.Value));
+    }
+
+    /// <summary>
+    /// 从目标位置开始搜索最近的空位置（优先向右）
+    /// </summary>
+    private (int X, int Y) FindNearestEmptyPosition(int targetX, int targetY, int? excludeFileId = null)
+    {
+        const int maxColumns = 4;
+
+        // 如果目标位置本身就是空的，直接返回
+        if (!IsPositionOccupied(targetX, targetY, excludeFileId))
+        {
+            return (targetX, targetY);
+        }
+
+        // 搜索策略：优先向右，然后向左，再向下，最后向上
+        int maxSearchRadius = 20;
+
+        for (int radius = 1; radius <= maxSearchRadius; radius++)
+        {
+            // 1. 优先搜索同一行右侧
+            for (int dx = 1; dx <= radius; dx++)
+            {
+                int checkX = targetX + dx;
+                if (checkX < maxColumns && !IsPositionOccupied(checkX, targetY, excludeFileId))
+                {
+                    return (checkX, targetY);
+                }
+            }
+
+            // 2. 搜索同一行左侧
+            for (int dx = 1; dx <= radius; dx++)
+            {
+                int checkX = targetX - dx;
+                if (checkX >= 0 && !IsPositionOccupied(checkX, targetY, excludeFileId))
+                {
+                    return (checkX, targetY);
+                }
+            }
+
+            // 3. 搜索下方行（优先右侧）
+            for (int dy = 1; dy <= radius; dy++)
+            {
+                int checkY = targetY + dy;
+
+                // 从目标列开始向右搜索
+                for (int dx = 0; dx <= radius; dx++)
+                {
+                    int checkX = targetX + dx;
+                    if (checkX < maxColumns && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+
+                // 再向左搜索
+                for (int dx = 1; dx <= radius; dx++)
+                {
+                    int checkX = targetX - dx;
+                    if (checkX >= 0 && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+            }
+
+            // 4. 搜索上方行（优先右侧）
+            for (int dy = 1; dy <= radius; dy++)
+            {
+                int checkY = targetY - dy;
+                if (checkY < 0) continue;
+
+                // 从目标列开始向右搜索
+                for (int dx = 0; dx <= radius; dx++)
+                {
+                    int checkX = targetX + dx;
+                    if (checkX < maxColumns && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+
+                // 再向左搜索
+                for (int dx = 1; dx <= radius; dx++)
+                {
+                    int checkX = targetX - dx;
+                    if (checkX >= 0 && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+            }
+        }
+
+        // 如果搜索失败，返回列表末尾的下一个空位置
+        int maxY = _viewModel.Files.Any() ? _viewModel.Files.Max(f => f.PositionY) : 0;
+
+        // 从末尾开始找第一个空位
+        for (int y = maxY; y <= maxY + 5; y++)
+        {
+            for (int x = 0; x < maxColumns; x++)
+            {
+                if (!IsPositionOccupied(x, y, excludeFileId))
+                {
+                    return (x, y);
+                }
+            }
+        }
+
+        return (0, maxY + 1);
     }
 
     /// <summary>
     /// 计算 Drop 目标的网格坐标（MAUI 事件）
     /// </summary>
-    private (int X, int Y) CalculateDropTargetPosition(DropEventArgs e)
+    private (int X, int Y) CalculateDropTargetPosition(DropEventArgs e, int? excludeFileId = null)
     {
         try
         {
@@ -394,23 +533,12 @@ public partial class PadPage : ContentPage
                 return (-1, -1);
             }
 
-            // 网格布局：4 列
-            const int columns = 4;
-
             // 每个网格单元大小（包括间距）
             const double cellWidth = 120;
             const double cellHeight = 120;
 
-            // 计算列和行
-            int column = (int)(dropPoint.Value.X / cellWidth);
-            int row = (int)(dropPoint.Value.Y / cellHeight);
-
-            // 确保列在有效范围内
-            if (column < 0) column = 0;
-            if (column >= columns) column = columns - 1;
-            if (row < 0) row = 0;
-
-            return (column, row);
+            // 使用统一的碰撞检测逻辑
+            return CalculateGridPosition(dropPoint.Value.X, dropPoint.Value.Y, excludeFileId);
         }
         catch (Exception ex)
         {

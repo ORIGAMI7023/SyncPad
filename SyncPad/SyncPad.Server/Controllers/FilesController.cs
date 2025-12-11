@@ -56,7 +56,7 @@ public class FilesController : ControllerBase
     /// 上传文件
     /// </summary>
     [HttpPost]
-    [RequestSizeLimit(100 * 1024 * 1024)] // 100MB 限制
+    [RequestSizeLimit(1024 * 1024 * 1024)] // 1GB 限制
     public async Task<ActionResult<FileUploadResponse>> UploadFile(
         IFormFile file,
         [FromQuery] bool overwrite = false)

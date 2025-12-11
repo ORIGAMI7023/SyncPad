@@ -8,6 +8,12 @@ using SyncPad.Server.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 配置 Kestrel 服务器选项（文件上传大小限制）
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024; // 1GB
+});
+
 // 配置数据库
 builder.Services.AddDbContext<SyncPadDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -32,16 +38,35 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew = TimeSpan.Zero
         };
 
-        // 允许 SignalR 通过查询字符串传递 Token
+        // 添加认证失败日志
         options.Events = new JwtBearerEvents
         {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine($"[JWT] 认证失败: {context.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                Console.WriteLine($"[JWT] Token 验证成功: {context.Principal?.Identity?.Name}");
+                return Task.CompletedTask;
+            },
             OnMessageReceived = context =>
             {
-                var accessToken = context.Request.Query["access_token"];
+                var accessToken = context.Request.Query["access_token"].ToString();
                 var path = context.HttpContext.Request.Path;
+
+                // 打印收到的 Token（前20个字符）
+                var authHeader = context.Request.Headers["Authorization"].ToString();
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    Console.WriteLine($"[JWT] 收到 Authorization 头: {authHeader[..Math.Min(50, authHeader.Length)]}...");
+                }
+
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                 {
                     context.Token = accessToken;
+                    Console.WriteLine($"[JWT] SignalR Token: {accessToken[..Math.Min(20, accessToken.Length)]}...");
                 }
                 return Task.CompletedTask;
             }
@@ -85,7 +110,7 @@ builder.Services.AddControllers();
 // 配置文件上传大小限制
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100MB
+    options.MultipartBodyLengthLimit = 1024 * 1024 * 1024; // 1GB
 });
 
 // 配置 Swagger/OpenAPI
@@ -107,6 +132,21 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// 添加请求日志中间件（调试用）
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    var method = context.Request.Method;
+    var authHeader = context.Request.Headers["Authorization"].ToString();
+
+    Console.WriteLine($"[Request] {method} {path}");
+    Console.WriteLine($"[Request] Authorization: {(string.IsNullOrEmpty(authHeader) ? "null" : authHeader[..Math.Min(60, authHeader.Length)])}...");
+
+    await next();
+
+    Console.WriteLine($"[Response] {context.Response.StatusCode}");
+});
 
 app.UseHttpsRedirection();
 app.UseCors();

@@ -30,15 +30,23 @@ public class FileClient : IFileClient
                 var uri = new Uri(hubUrl);
                 var baseUrl = $"{uri.Scheme}://{uri.Authority}/";
                 _httpClient.BaseAddress = new Uri(baseUrl);
+                System.Diagnostics.Debug.WriteLine($"[FileClient] EnsureBaseAddress - BaseAddress 设置为: {baseUrl}");
             }
         }
 
         // 确保设置了认证令牌
         var token = _authManager.Token;
+        System.Diagnostics.Debug.WriteLine($"[FileClient] EnsureBaseAddress - Token: {(string.IsNullOrEmpty(token) ? "null" : token[..Math.Min(20, token.Length)])}...");
+
         if (!string.IsNullOrEmpty(token))
         {
             _httpClient.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            System.Diagnostics.Debug.WriteLine($"[FileClient] EnsureBaseAddress - Authorization 头已设置");
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine($"[FileClient] EnsureBaseAddress - 警告: Token 为空！");
         }
     }
 
@@ -47,11 +55,26 @@ public class FileClient : IFileClient
         try
         {
             EnsureBaseAddress();
-            var response = await _httpClient.GetFromJsonAsync<ApiResponse<FileListResponse>>("api/files");
+            System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - BaseAddress: {_httpClient.BaseAddress}");
+            System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - Token: {(_httpClient.DefaultRequestHeaders.Authorization?.Parameter?[..Math.Min(20, _httpClient.DefaultRequestHeaders.Authorization?.Parameter?.Length ?? 0)] ?? "null")}...");
+
+            var httpResponse = await _httpClient.GetAsync("api/files");
+            System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - StatusCode: {httpResponse.StatusCode}");
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await httpResponse.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - Error: {errorContent}");
+                return ApiResponse<FileListResponse>.Fail($"服务器返回错误: {httpResponse.StatusCode}");
+            }
+
+            var response = await httpResponse.Content.ReadFromJsonAsync<ApiResponse<FileListResponse>>();
+            System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - Success: {response?.Success}, FileCount: {response?.Data?.Files?.Count ?? 0}");
             return response ?? ApiResponse<FileListResponse>.Fail("服务器返回空响应");
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[FileClient] GetFilesAsync - Exception: {ex.Message}");
             return ApiResponse<FileListResponse>.Fail($"网络错误: {ex.Message}");
         }
     }
@@ -85,13 +108,28 @@ public class FileClient : IFileClient
             content.Add(streamContent, "file", fileName);
 
             var url = overwrite ? "api/files?overwrite=true" : "api/files";
-            var response = await _httpClient.PostAsync(url, content);
-            var result = await response.Content.ReadFromJsonAsync<FileUploadResponse>();
+            System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - URL: {_httpClient.BaseAddress}{url}");
 
+            var response = await _httpClient.PostAsync(url, content);
+            System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - StatusCode: {response.StatusCode}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - Error Response: {errorContent}");
+                return new FileUploadResponse { Success = false, ErrorMessage = $"上传失败 ({response.StatusCode}): {errorContent}" };
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - Response Content: {responseContent}");
+
+            var result = await response.Content.ReadFromJsonAsync<FileUploadResponse>();
             return result ?? new FileUploadResponse { Success = false, ErrorMessage = "服务器返回空响应" };
         }
         catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - Exception: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - StackTrace: {ex.StackTrace}");
             return new FileUploadResponse { Success = false, ErrorMessage = $"上传失败: {ex.Message}" };
         }
     }

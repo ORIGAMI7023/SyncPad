@@ -162,13 +162,25 @@
             </Grid>
 
             <!-- 文件网格（自由定位布局） -->
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1" x:Name="FileAreaGrid">
+                <Grid.GestureRecognizers>
+                    <!-- 外层 Grid 的拖放支持（用于空状态） -->
+                    <DropGestureRecognizer AllowDrop="True"
+                                          DragOver="OnFileDragOver"
+                                          Drop="OnFileDrop"/>
+                </Grid.GestureRecognizers>
+
                 <!-- 空状态 -->
                 <StackLayout Padding="20" VerticalOptions="Center" IsVisible="{Binding HasNoFiles}">
                     <Label Text="暂无文件"
                            FontSize="14"
                            TextColor="Gray"
                            HorizontalTextAlignment="Center"/>
+                    <Label Text="拖入文件到此处上传"
+                           FontSize="12"
+                           TextColor="LightGray"
+                           HorizontalTextAlignment="Center"
+                           Margin="0,8,0,0"/>
                 </StackLayout>
 
                 <!-- 文件自由网格 -->
@@ -214,11 +226,20 @@
 
                                     <!-- 文件图标和状态角标 -->
                                     <Grid Grid.Row="0">
-                                        <!-- 文件图标 -->
+                                        <!-- Windows 原生文件图标（优先显示） -->
+                                        <Image Source="{Binding NativeIcon}"
+                                               WidthRequest="48"
+                                               HeightRequest="48"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding HasNativeIcon}"/>
+
+                                        <!-- Emoji 文件图标（后备） -->
                                         <Label Text="{Binding FileIcon}"
                                                FontSize="32"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding HasNativeIcon, Converter={StaticResource InverseBoolConverter}}"/>
 
                                         <!-- 状态角标 -->
                                         <Label Text="{Binding StatusBadge}"
