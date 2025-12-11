@@ -93,7 +93,9 @@
                          @ondragend="OnDragEnd"
                          @onclick="(e) => HandleFileClick(e, file)"
                          @onclick:stopPropagation="true"
-                         @ondblclick="() => DownloadFile(file)">
+                         @ondblclick="() => DownloadFile(file)"
+                         @oncontextmenu="(e) => ShowContextMenu(e, file)"
+                         @oncontextmenu:preventDefault="true">
                         <div class="file-icon-container">
                             <div class="file-icon">@file.FileIcon</div>
                             @if (!string.IsNullOrEmpty(file.StatusBadge))
@@ -117,6 +119,16 @@
             @if (_showDropIndicator)
             {
                 <div class="drop-indicator" style="left: @(_dropIndicatorX)px; top: @(_dropIndicatorY)px;"></div>
+            }
+
+            <!-- 右键菜单 -->
+            @if (_contextMenuVisible && _contextMenuFile != null)
+            {
+                <div class="context-menu" style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;" @onclick:stopPropagation="true">
+                    <div class="context-menu-item" @onclick="() => DownloadFile(_contextMenuFile)">打开/下载</div>
+                    <div class="context-menu-separator"></div>
+                    <div class="context-menu-item context-menu-danger" @onclick="() => DeleteFileFromContextMenu(_contextMenuFile)">删除</div>
+                </div>
             }
         </div>
 
@@ -471,6 +483,43 @@
         color: #666;
     }
 
+    /* 右键菜单 */
+    .context-menu {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        z-index: 1000;
+        min-width: 150px;
+        padding: 4px 0;
+    }
+
+    .context-menu-item {
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .context-menu-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .context-menu-danger {
+        color: #dc3545;
+    }
+
+    .context-menu-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .context-menu-separator {
+        height: 1px;
+        background-color: #e0e0e0;
+        margin: 4px 0;
+    }
+
     /* 响应式设计 */
     @@media (max-width: 768px) {
         .pad-layout {
@@ -533,6 +582,12 @@
     private const int CellHeight = 120;
     private const int CellSpacing = 2;
     private const int GridPadding = 10;
+
+    // 右键菜单状态
+    private bool _contextMenuVisible = false;
+    private int _contextMenuX = 0;
+    private int _contextMenuY = 0;
+    private SelectableFileItemWeb? _contextMenuFile = null;
 
     protected override void OnInitialized()
     {
@@ -935,6 +990,28 @@
     {
         // 如果点击的是空白区域（不是文件卡片），取消所有选中
         ClearSelection();
+
+        // 隐藏右键菜单
+        _contextMenuVisible = false;
+        StateHasChanged();
+    }
+
+    // 显示右键菜单
+    private void ShowContextMenu(Microsoft.AspNetCore.Components.Web.MouseEventArgs e, SelectableFileItemWeb file)
+    {
+        _contextMenuFile = file;
+        _contextMenuX = (int)e.ClientX;
+        _contextMenuY = (int)e.ClientY;
+        _contextMenuVisible = true;
+        StateHasChanged();
+    }
+
+    // 从右键菜单删除文件（无需确认）
+    private async Task DeleteFileFromContextMenu(SelectableFileItemWeb file)
+    {
+        _contextMenuVisible = false;
+        await DeleteFile(file);
+        StateHasChanged();
     }
 
     // 内部拖放事件处理

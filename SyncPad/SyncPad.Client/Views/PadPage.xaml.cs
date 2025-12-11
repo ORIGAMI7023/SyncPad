@@ -709,12 +709,24 @@ public partial class PadPage : ContentPage
     }
 
 #if WINDOWS
-    private void OnKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    private async void OnKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Control)
             _isCtrlPressed = true;
         else if (e.Key == Windows.System.VirtualKey.Shift)
             _isShiftPressed = true;
+        else if (e.Key == Windows.System.VirtualKey.Delete)
+        {
+            // Delete 键删除选中的文件（无提示）
+            var selectedFiles = _viewModel.Files.Where(f => f.IsSelected).ToList();
+            if (selectedFiles.Count > 0)
+            {
+                foreach (var file in selectedFiles)
+                {
+                    await _viewModel.DeleteFileAsync(file, showConfirmation: false);
+                }
+            }
+        }
     }
 
     private void OnKeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)

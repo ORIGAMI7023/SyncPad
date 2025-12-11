@@ -536,14 +536,19 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async Task DeleteFileAsync(SelectableFileItem file)
+    public async Task DeleteFileAsync(SelectableFileItem file, bool showConfirmation = true)
     {
         try
         {
-            var confirm = await Application.Current!.MainPage!.DisplayAlert(
-                "确认删除",
-                $"确定要删除文件 \"{file.FileName}\" 吗？",
-                "删除", "取消");
+            bool confirm = true;
+
+            if (showConfirmation)
+            {
+                confirm = await Application.Current!.MainPage!.DisplayAlert(
+                    "确认删除",
+                    $"确定要删除文件 \"{file.FileName}\" 吗？",
+                    "删除", "取消");
+            }
 
             if (confirm)
             {
