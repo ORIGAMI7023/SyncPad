@@ -83,13 +83,18 @@ public partial class PadPage : ContentPage
             // 内部拖放回调
             onInternalDrop: async (fileId, x, y) =>
             {
+                // 立即清除拖动状态，防止 MAUI DropGestureRecognizer 在 await 期间重复处理
+                FileDragDropBehavior.CurrentDraggedItem = null;
+                _draggedItem = null;
+
                 // 查找被拖动的文件
                 var draggedFile = _viewModel.Files.FirstOrDefault(f => f.Id == fileId);
+                System.Diagnostics.Debug.WriteLine($"[拖放] 被拖动文件: Id={fileId}, 当前位置=({draggedFile?.PositionX}, {draggedFile?.PositionY})");
 
                 // 计算网格位置（排除被拖动文件自身，避免碰撞检测误判）
                 var (targetX, targetY) = CalculateGridPosition(x, y, fileId);
 
-                System.Diagnostics.Debug.WriteLine($"[拖放] 文件 {fileId} 拖到 ({x:F1}, {y:F1}) -> 最终位置 ({targetX}, {targetY})");
+                System.Diagnostics.Debug.WriteLine($"[拖放] 文件 {fileId} 拖到 ({x:F1}, {y:F1}) -> 计算出的目标位置 ({targetX}, {targetY})");
 
                 // 更新文件位置（会触发 SignalR 回调，自动使用动画更新）
                 await _viewModel.UpdateFilePositionAsync(fileId, targetX, targetY);
@@ -396,10 +401,21 @@ public partial class PadPage : ContentPage
     /// </summary>
     private bool IsPositionOccupied(int x, int y, int? excludeFileId = null)
     {
-        return _viewModel.Files.Any(f =>
+        var occupied = _viewModel.Files.Any(f =>
             f.PositionX == x &&
             f.PositionY == y &&
             (!excludeFileId.HasValue || f.Id != excludeFileId.Value));
+
+        if (occupied)
+        {
+            var occupyingFile = _viewModel.Files.FirstOrDefault(f =>
+                f.PositionX == x &&
+                f.PositionY == y &&
+                (!excludeFileId.HasValue || f.Id != excludeFileId.Value));
+            System.Diagnostics.Debug.WriteLine($"[碰撞检测] 位置 ({x},{y}) 被占用，文件ID={occupyingFile?.Id}, excludeFileId={excludeFileId}");
+        }
+
+        return occupied;
     }
 
     /// <summary>
@@ -409,11 +425,16 @@ public partial class PadPage : ContentPage
     {
         const int maxColumns = 4;
 
+        System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置=({targetX},{targetY}), excludeFileId={excludeFileId}");
+
         // 如果目标位置本身就是空的，直接返回
         if (!IsPositionOccupied(targetX, targetY, excludeFileId))
         {
+            System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置空闲，直接返回 ({targetX},{targetY})");
             return (targetX, targetY);
         }
+
+        System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置被占用，开始搜索空位");
 
         // 搜索策略：优先向右，然后向左，再向下，最后向上
         int maxSearchRadius = 20;

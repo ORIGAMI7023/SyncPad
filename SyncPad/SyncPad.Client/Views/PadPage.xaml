@@ -187,11 +187,7 @@
                 <controls:FileGridView ItemsSource="{Binding Files}"
                                       IsVisible="{Binding HasFiles}"
                                       x:Name="FileGridView">
-                    <controls:FileGridView.GestureRecognizers>
-                        <DropGestureRecognizer AllowDrop="True"
-                                              DragOver="OnFileDragOver"
-                                              Drop="OnFileDrop"/>
-                    </controls:FileGridView.GestureRecognizers>
+                    <!-- 移除 DropGestureRecognizer，使用 Windows 原生拖放处理 -->
 
                     <controls:FileGridView.ItemTemplate>
                         <DataTemplate>
@@ -207,14 +203,7 @@
                                 <Frame.Behaviors>
                                     <behaviors:FileDragDropBehavior />
                                 </Frame.Behaviors>
-                                <Frame.GestureRecognizers>
-                                    <DragGestureRecognizer CanDrag="True"
-                                                          DragStarting="OnDragStarting"
-                                                          DropCompleted="OnDropCompleted"/>
-                                    <DropGestureRecognizer AllowDrop="True"
-                                                          DragOver="OnCardDragOver"
-                                                          Drop="OnCardDrop"/>
-                                </Frame.GestureRecognizers>
+                                <!-- Windows 平台使用原生拖放，移除 MAUI GestureRecognizer -->
 
                                 <Grid RowSpacing="4">
                                     <Grid.RowDefinitions>
