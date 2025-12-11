@@ -17,7 +17,7 @@
             <ColumnDefinition>
                 <ColumnDefinition.Width>
                     <OnIdiom x:TypeArguments="GridLength">
-                        <OnIdiom.Desktop>480</OnIdiom.Desktop>
+                        <OnIdiom.Desktop>540</OnIdiom.Desktop>
                         <OnIdiom.Tablet>0</OnIdiom.Tablet>
                         <OnIdiom.Phone>0</OnIdiom.Phone>
                     </OnIdiom>
@@ -207,9 +207,6 @@
                                 <FlyoutBase.ContextFlyout>
                                     <MenuFlyout>
                                         <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="复制到剪贴板" Clicked="OnContextMenuCopy" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="导出..." Clicked="OnContextMenuExport" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutSeparator/>
                                         <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                     </MenuFlyout>
                                 </FlyoutBase.ContextFlyout>
@@ -316,8 +313,6 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <Label Grid.Column="0"
@@ -326,26 +321,6 @@
                        FontSize="12"/>
 
                 <Button Grid.Column="1"
-                        Text="复制"
-                        Command="{Binding BatchCopyCommand}"
-                        BackgroundColor="#17A2B8"
-                        TextColor="White"
-                        CornerRadius="4"
-                        Padding="8,5"
-                        Margin="5,0"
-                        FontSize="12"/>
-
-                <Button Grid.Column="2"
-                        Text="导出"
-                        Command="{Binding BatchExportCommand}"
-                        BackgroundColor="#FFC107"
-                        TextColor="Black"
-                        CornerRadius="4"
-                        Padding="8,5"
-                        Margin="5,0"
-                        FontSize="12"/>
-
-                <Button Grid.Column="3"
                         Text="下载"
                         Command="{Binding BatchDownloadCommand}"
                         BackgroundColor="#28A745"
@@ -355,7 +330,7 @@
                         Margin="5,0"
                         FontSize="12"/>
 
-                <Button Grid.Column="4"
+                <Button Grid.Column="2"
                         Text="删除"
                         Command="{Binding BatchDeleteCommand}"
                         BackgroundColor="#DC3545"
@@ -365,7 +340,7 @@
                         Margin="5,0"
                         FontSize="12"/>
 
-                <Button Grid.Column="5"
+                <Button Grid.Column="3"
                         Text="取消"
                         Command="{Binding ClearSelectionCommand}"
                         BackgroundColor="#6C757D"
@@ -691,7 +666,7 @@
                                FontSize="12"/>
 
                         <Button Grid.Column="1"
-                                Text="批量下载"
+                                Text="下载"
                                 Command="{Binding BatchDownloadCommand}"
                                 BackgroundColor="#28A745"
                                 TextColor="White"
@@ -701,7 +676,7 @@
                                 FontSize="12"/>
 
                         <Button Grid.Column="2"
-                                Text="批量删除"
+                                Text="删除"
                                 Command="{Binding BatchDeleteCommand}"
                                 BackgroundColor="#DC3545"
                                 TextColor="White"

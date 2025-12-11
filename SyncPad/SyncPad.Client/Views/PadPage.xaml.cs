@@ -679,27 +679,11 @@ public partial class PadPage : ContentPage
         }
     }
 
-    private void OnContextMenuCopy(object? sender, EventArgs e)
+    private void OnContextMenuDelete(object? sender, EventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
         {
-            _viewModel.CopyFileCommand.Execute(file);
-        }
-    }
-
-    private void OnContextMenuExport(object? sender, EventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
-        {
-            _viewModel.ExportFileCommand.Execute(file);
-        }
-    }
-
-    private async void OnContextMenuDelete(object? sender, EventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
-        {
-            await _viewModel.DeleteFileAsync(file);
+            _viewModel.DeleteFileCommand.Execute(file);
         }
     }
 
