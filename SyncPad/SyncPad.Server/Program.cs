@@ -49,16 +49,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnTokenValidated = async context =>
             {
                 var userIdClaim = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-                if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var userId))
-                {
-                    // 验证用户是否仍然存在于数据库
-                    var dbContext = context.HttpContext.RequestServices.GetRequiredService<SyncPadDbContext>();
-                    var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId);
+                var usernameClaim = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Name);
 
-                    if (!userExists)
+                if (userIdClaim != null && usernameClaim != null &&
+                    int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    // 验证用户是否存在且用户名匹配
+                    var dbContext = context.HttpContext.RequestServices.GetRequiredService<SyncPadDbContext>();
+                    var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+                    if (user == null)
                     {
-                        Console.WriteLine($"[JWT] 用户 {userId} 已被删除，拒绝访问");
-                        context.Fail("用户已被删除");
+                        Console.WriteLine($"[JWT] 用户ID {userId} 不存在，拒绝访问");
+                        context.Fail("用户不存在");
+                        return;
+                    }
+
+                    if (user.Username != usernameClaim.Value)
+                    {
+                        Console.WriteLine($"[JWT] Token用户名 {usernameClaim.Value} 与数据库用户名 {user.Username} 不匹配，拒绝访问");
+                        context.Fail("用户名不匹配");
                         return;
                     }
                 }
