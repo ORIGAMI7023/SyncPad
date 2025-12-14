@@ -7,6 +7,7 @@ public class SelectableFileItem : BaseViewModel
     private bool _isSelected;
     private FileStatus _status = FileStatus.Remote;
     private int _downloadProgress;
+    private object? _nativeIcon; // 存储平台特定的图标对象
 
     public FileItemDto File { get; }
 
@@ -35,6 +36,17 @@ public class SelectableFileItem : BaseViewModel
         get => _downloadProgress;
         set => SetProperty(ref _downloadProgress, value);
     }
+
+    /// <summary>
+    /// 平台原生文件图标（Windows: BitmapImage）
+    /// </summary>
+    public object? NativeIcon
+    {
+        get => _nativeIcon;
+        set => SetProperty(ref _nativeIcon, value);
+    }
+
+    public bool HasNativeIcon => NativeIcon != null;
 
     // UI 辅助属性
     public string StatusText => Status switch

@@ -54,32 +54,48 @@ public partial class PadPage : ContentPage
 #if WINDOWS
     private void SetupWindowsDragDrop()
     {
+        // 为外层 Grid 设置拖放支持（处理空状态）
+        DragDropHandler.SetupDropTarget(
+            FileAreaGrid,
+            onFilesDropped: async (files, x, y) =>
+            {
+                // 多文件上传：按顺序为每个文件分配位置
+                await UploadMultipleFilesAsync(files, x, y);
+            },
+            onInternalDrop: null, // 外层不处理内部拖动
+            onDragOver: null,
+            onDragLeave: null
+        );
+
         // 为文件区域设置拖入支持（支持外部文件拖入和内部文件重排）
         DragDropHandler.SetupDropTarget(
             FileGridView,
             // 外部文件拖入回调
-            onFilesDropped: async (files) =>
+            onFilesDropped: async (files, x, y) =>
             {
-                foreach (var file in files)
-                {
-                    await UploadStorageFileAsync(file);
-                }
+                // 多文件上传：按顺序为每个文件分配位置
+                await UploadMultipleFilesAsync(files, x, y);
             },
             // 内部拖放回调
             onInternalDrop: async (fileId, x, y) =>
             {
+                // 立即清除拖动状态，防止 MAUI DropGestureRecognizer 在 await 期间重复处理
+                FileDragDropBehavior.CurrentDraggedItem = null;
+                _draggedItem = null;
+
                 // 查找被拖动的文件
                 var draggedFile = _viewModel.Files.FirstOrDefault(f => f.Id == fileId);
+                System.Diagnostics.Debug.WriteLine($"[拖放] 被拖动文件: Id={fileId}, 当前位置=({draggedFile?.PositionX}, {draggedFile?.PositionY})");
 
-                // 计算网格位置
-                var (targetX, targetY) = CalculateGridPosition(x, y);
+                // 计算网格位置（排除被拖动文件自身，避免碰撞检测误判）
+                var (targetX, targetY) = CalculateGridPosition(x, y, fileId);
 
-                // 更新文件位置
+                System.Diagnostics.Debug.WriteLine($"[拖放] 文件 {fileId} 拖到 ({x:F1}, {y:F1}) -> 计算出的目标位置 ({targetX}, {targetY})");
+
+                // 更新文件位置（会触发 SignalR 回调，自动使用动画更新）
                 await _viewModel.UpdateFilePositionAsync(fileId, targetX, targetY);
 
-                await Task.Delay(300);
-
-                await _viewModel.RefreshFilesAsync();
+                // 不再刷新文件列表，让 SignalR 回调处理更新（会触发动画）
             },
             // DragOver 回调（显示指示器）
             onDragOver: (x, y) =>
@@ -100,31 +116,119 @@ public partial class PadPage : ContentPage
         );
     }
 
-    private async Task UploadStorageFileAsync(StorageFile storageFile)
+    private async Task UploadStorageFileAsync(StorageFile storageFile, int? gridX = null, int? gridY = null)
     {
         try
         {
             using var stream = await storageFile.OpenStreamForReadAsync();
             var contentType = storageFile.ContentType ?? "application/octet-stream";
 
-            // 检查是否存在同名文件
+            // 检查是否存在同名文件（服务器端检查）
             bool exists = await _viewModel.FileExistsAsync(storageFile.Name);
 
             if (exists)
             {
                 var confirm = await DisplayAlert("文件已存在",
-                    $"文件 \"{storageFile.Name}\" 已存在，是否覆盖？",
+                    $"服务器上已存在文件 \"{storageFile.Name}\"，是否覆盖？\n\n" +
+                    $"（如果看不到该文件，请尝试刷新页面）",
                     "覆盖", "取消");
                 if (!confirm)
                     return;
             }
 
             await _viewModel.UploadFileAsync(storageFile.Name, stream, contentType, exists);
+
+            // 如果指定了位置，上传完成后设置文件位置
+            if (gridX.HasValue && gridY.HasValue)
+            {
+                // 等待一小段时间让文件上传完成并同步
+                await Task.Delay(500);
+
+                // 查找刚上传的文件
+                var uploadedFile = _viewModel.Files.FirstOrDefault(f => f.FileName == storageFile.Name);
+                if (uploadedFile != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[拖放上传] 设置文件 {storageFile.Name} 位置到 ({gridX}, {gridY})");
+                    await _viewModel.UpdateFilePositionAsync(uploadedFile.Id, gridX.Value, gridY.Value);
+                }
+            }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 上传多个文件，按顺序为每个文件分配不同的位置
+    /// </summary>
+    private async Task UploadMultipleFilesAsync(IReadOnlyList<StorageFile> files, double x, double y)
+    {
+        const int columns = 4;
+        const double cellWidth = 120;
+        const double cellHeight = 120;
+
+        // 计算起始网格位置
+        int startColumn = (int)(x / cellWidth);
+        int startRow = (int)(y / cellHeight);
+
+        // 限制列范围
+        if (startColumn < 0) startColumn = 0;
+        if (startColumn >= columns) startColumn = columns - 1;
+        if (startRow < 0) startRow = 0;
+
+        // 收集当前已占用的位置
+        var occupiedPositions = new HashSet<(int, int)>(
+            _viewModel.Files.Select(f => (f.PositionX, f.PositionY))
+        );
+
+        // 为每个文件分配唯一位置并串行上传
+        int fileIndex = 0;
+        foreach (var file in files)
+        {
+            // 从起始位置开始找下一个空位
+            var (gridX, gridY) = FindNextAvailablePosition(startColumn, startRow, fileIndex, occupiedPositions, columns);
+
+            // 标记该位置为已占用（预防后续文件使用同一位置）
+            occupiedPositions.Add((gridX, gridY));
+
+            System.Diagnostics.Debug.WriteLine($"[多文件上传] 文件 {file.Name} 分配位置 ({gridX}, {gridY})");
+
+            // 串行上传，避免并发问题
+            await UploadStorageFileAsync(file, gridX, gridY);
+
+            fileIndex++;
+        }
+    }
+
+    /// <summary>
+    /// 从起始位置开始，找到第 offset 个空位
+    /// </summary>
+    private (int X, int Y) FindNextAvailablePosition(int startX, int startY, int offset, HashSet<(int, int)> occupied, int columns)
+    {
+        int found = 0;
+        int currentX = startX;
+        int currentY = startY;
+
+        // 从起始位置开始搜索
+        for (int y = startY; y < startY + 100; y++)
+        {
+            int xStart = (y == startY) ? startX : 0;
+            for (int x = xStart; x < columns; x++)
+            {
+                if (!occupied.Contains((x, y)))
+                {
+                    if (found == offset)
+                    {
+                        return (x, y);
+                    }
+                    found++;
+                }
+            }
+        }
+
+        // 如果搜索失败，返回默认位置
+        return (0, startY + offset / columns);
     }
 #endif
 
@@ -356,7 +460,7 @@ public partial class PadPage : ContentPage
     /// <summary>
     /// 从原始坐标计算网格位置（用于 Windows 原生拖放）
     /// </summary>
-    private (int X, int Y) CalculateGridPosition(double x, double y)
+    private (int X, int Y) CalculateGridPosition(double x, double y, int? excludeFileId = null)
     {
         const int columns = 4;
         const double cellWidth = 120;
@@ -370,13 +474,152 @@ public partial class PadPage : ContentPage
         if (column >= columns) column = columns - 1;
         if (row < 0) row = 0;
 
-        return (column, row);
+        // 检查碰撞并找到最近的空位置
+        var finalPosition = FindNearestEmptyPosition(column, row, excludeFileId);
+        return finalPosition;
+    }
+
+    /// <summary>
+    /// 检查指定位置是否被占用（排除指定文件ID）
+    /// </summary>
+    private bool IsPositionOccupied(int x, int y, int? excludeFileId = null)
+    {
+        var occupied = _viewModel.Files.Any(f =>
+            f.PositionX == x &&
+            f.PositionY == y &&
+            (!excludeFileId.HasValue || f.Id != excludeFileId.Value));
+
+        if (occupied)
+        {
+            var occupyingFile = _viewModel.Files.FirstOrDefault(f =>
+                f.PositionX == x &&
+                f.PositionY == y &&
+                (!excludeFileId.HasValue || f.Id != excludeFileId.Value));
+            System.Diagnostics.Debug.WriteLine($"[碰撞检测] 位置 ({x},{y}) 被占用，文件ID={occupyingFile?.Id}, excludeFileId={excludeFileId}");
+        }
+
+        return occupied;
+    }
+
+    /// <summary>
+    /// 从目标位置开始搜索最近的空位置（优先向右）
+    /// </summary>
+    private (int X, int Y) FindNearestEmptyPosition(int targetX, int targetY, int? excludeFileId = null)
+    {
+        const int maxColumns = 4;
+
+        System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置=({targetX},{targetY}), excludeFileId={excludeFileId}");
+
+        // 如果目标位置本身就是空的，直接返回
+        if (!IsPositionOccupied(targetX, targetY, excludeFileId))
+        {
+            System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置空闲，直接返回 ({targetX},{targetY})");
+            return (targetX, targetY);
+        }
+
+        System.Diagnostics.Debug.WriteLine($"[FindNearestEmptyPosition] 目标位置被占用，开始搜索空位");
+
+        // 搜索策略：优先向右，然后向左，再向下，最后向上
+        int maxSearchRadius = 20;
+
+        for (int radius = 1; radius <= maxSearchRadius; radius++)
+        {
+            // 1. 优先搜索同一行右侧
+            for (int dx = 1; dx <= radius; dx++)
+            {
+                int checkX = targetX + dx;
+                if (checkX < maxColumns && !IsPositionOccupied(checkX, targetY, excludeFileId))
+                {
+                    return (checkX, targetY);
+                }
+            }
+
+            // 2. 搜索同一行左侧
+            for (int dx = 1; dx <= radius; dx++)
+            {
+                int checkX = targetX - dx;
+                if (checkX >= 0 && !IsPositionOccupied(checkX, targetY, excludeFileId))
+                {
+                    return (checkX, targetY);
+                }
+            }
+
+            // 3. 搜索下方行（优先右侧）
+            for (int dy = 1; dy <= radius; dy++)
+            {
+                int checkY = targetY + dy;
+
+                // 从目标列开始向右搜索
+                for (int dx = 0; dx <= radius; dx++)
+                {
+                    int checkX = targetX + dx;
+                    if (checkX < maxColumns && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+
+                // 再向左搜索
+                for (int dx = 1; dx <= radius; dx++)
+                {
+                    int checkX = targetX - dx;
+                    if (checkX >= 0 && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+            }
+
+            // 4. 搜索上方行（优先右侧）
+            for (int dy = 1; dy <= radius; dy++)
+            {
+                int checkY = targetY - dy;
+                if (checkY < 0) continue;
+
+                // 从目标列开始向右搜索
+                for (int dx = 0; dx <= radius; dx++)
+                {
+                    int checkX = targetX + dx;
+                    if (checkX < maxColumns && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+
+                // 再向左搜索
+                for (int dx = 1; dx <= radius; dx++)
+                {
+                    int checkX = targetX - dx;
+                    if (checkX >= 0 && !IsPositionOccupied(checkX, checkY, excludeFileId))
+                    {
+                        return (checkX, checkY);
+                    }
+                }
+            }
+        }
+
+        // 如果搜索失败，返回列表末尾的下一个空位置
+        int maxY = _viewModel.Files.Any() ? _viewModel.Files.Max(f => f.PositionY) : 0;
+
+        // 从末尾开始找第一个空位
+        for (int y = maxY; y <= maxY + 5; y++)
+        {
+            for (int x = 0; x < maxColumns; x++)
+            {
+                if (!IsPositionOccupied(x, y, excludeFileId))
+                {
+                    return (x, y);
+                }
+            }
+        }
+
+        return (0, maxY + 1);
     }
 
     /// <summary>
     /// 计算 Drop 目标的网格坐标（MAUI 事件）
     /// </summary>
-    private (int X, int Y) CalculateDropTargetPosition(DropEventArgs e)
+    private (int X, int Y) CalculateDropTargetPosition(DropEventArgs e, int? excludeFileId = null)
     {
         try
         {
@@ -394,23 +637,12 @@ public partial class PadPage : ContentPage
                 return (-1, -1);
             }
 
-            // 网格布局：4 列
-            const int columns = 4;
-
             // 每个网格单元大小（包括间距）
             const double cellWidth = 120;
             const double cellHeight = 120;
 
-            // 计算列和行
-            int column = (int)(dropPoint.Value.X / cellWidth);
-            int row = (int)(dropPoint.Value.Y / cellHeight);
-
-            // 确保列在有效范围内
-            if (column < 0) column = 0;
-            if (column >= columns) column = columns - 1;
-            if (row < 0) row = 0;
-
-            return (column, row);
+            // 使用统一的碰撞检测逻辑
+            return CalculateGridPosition(dropPoint.Value.X, dropPoint.Value.Y, excludeFileId);
         }
         catch (Exception ex)
         {
@@ -428,6 +660,7 @@ public partial class PadPage : ContentPage
         if (sender is Element element && element.BindingContext is SelectableFileItem item)
         {
             var currentIndex = _viewModel.Files.IndexOf(item);
+            if (currentIndex < 0) return; // 文件不在列表中
 
             if (_isCtrlPressed)
             {
@@ -435,11 +668,15 @@ public partial class PadPage : ContentPage
                 item.IsSelected = !item.IsSelected;
                 _lastSelectedIndex = item.IsSelected ? currentIndex : -1;
             }
-            else if (_isShiftPressed && _lastSelectedIndex >= 0)
+            else if (_isShiftPressed && _lastSelectedIndex >= 0 && _lastSelectedIndex < _viewModel.Files.Count)
             {
-                // Shift + 单击：范围选择
+                // Shift + 单击：范围选择（添加边界检查）
                 var startIndex = Math.Min(_lastSelectedIndex, currentIndex);
                 var endIndex = Math.Max(_lastSelectedIndex, currentIndex);
+
+                // 确保索引在有效范围内
+                startIndex = Math.Max(0, startIndex);
+                endIndex = Math.Min(_viewModel.Files.Count - 1, endIndex);
 
                 // 先清除所有选择
                 foreach (var f in _viewModel.Files)
@@ -520,6 +757,26 @@ public partial class PadPage : ContentPage
 
     #endregion
 
+    #region 右键菜单事件
+
+    private void OnContextMenuOpen(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.OpenFileCommand.Execute(file);
+        }
+    }
+
+    private void OnContextMenuDelete(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.DeleteFileCommand.Execute(file);
+        }
+    }
+
+    #endregion
+
     #region 文本编辑事件
 
     /// <summary>
@@ -551,29 +808,82 @@ public partial class PadPage : ContentPage
         base.OnHandlerChanged();
 
 #if WINDOWS
-        if (Handler?.PlatformView is Microsoft.UI.Xaml.UIElement uiElement)
-        {
-            uiElement.KeyDown += OnKeyDown;
-            uiElement.KeyUp += OnKeyUp;
-        }
+        SetupWindowsKeyboardHandling();
 #endif
     }
 
 #if WINDOWS
-    private void OnKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    private Microsoft.UI.Xaml.Window? _nativeWindow;
+
+    private void SetupWindowsKeyboardHandling()
     {
-        if (e.Key == Windows.System.VirtualKey.Control)
-            _isCtrlPressed = true;
-        else if (e.Key == Windows.System.VirtualKey.Shift)
-            _isShiftPressed = true;
+        // 获取原生窗口并监听键盘事件
+        var mauiWindow = Application.Current?.Windows.FirstOrDefault();
+        if (mauiWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow)
+        {
+            _nativeWindow = nativeWindow;
+
+            // 使用窗口内容的 PreviewKeyDown/PreviewKeyUp 来捕获键盘事件
+            if (nativeWindow.Content is Microsoft.UI.Xaml.UIElement rootElement)
+            {
+                rootElement.PreviewKeyDown += OnPreviewKeyDown;
+                rootElement.PreviewKeyUp += OnPreviewKeyUp;
+                System.Diagnostics.Debug.WriteLine("[键盘] 已在窗口级别注册键盘事件");
+            }
+        }
     }
 
-    private void OnKeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    private async void OnPreviewKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        // 实时更新修饰键状态
+        if (e.Key == Windows.System.VirtualKey.Control)
+        {
+            _isCtrlPressed = true;
+            System.Diagnostics.Debug.WriteLine("[键盘] Ctrl 按下");
+        }
+        else if (e.Key == Windows.System.VirtualKey.Shift)
+        {
+            _isShiftPressed = true;
+            System.Diagnostics.Debug.WriteLine("[键盘] Shift 按下");
+        }
+        else if (e.Key == Windows.System.VirtualKey.A && _isCtrlPressed)
+        {
+            // Ctrl+A 全选所有文件
+            System.Diagnostics.Debug.WriteLine("[键盘] Ctrl+A 触发");
+            foreach (var file in _viewModel.Files)
+            {
+                file.IsSelected = true;
+            }
+            _viewModel.NotifySelectionChanged();
+            e.Handled = true;
+        }
+        else if (e.Key == Windows.System.VirtualKey.Delete)
+        {
+            // Delete 键删除选中的文件（无提示）
+            var selectedFiles = _viewModel.Files.Where(f => f.IsSelected).ToList();
+            if (selectedFiles.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"[键盘] Delete 触发，删除 {selectedFiles.Count} 个文件");
+                foreach (var file in selectedFiles)
+                {
+                    await _viewModel.DeleteFileAsync(file, showConfirmation: false);
+                }
+            }
+        }
+    }
+
+    private void OnPreviewKeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Control)
+        {
             _isCtrlPressed = false;
+            System.Diagnostics.Debug.WriteLine("[键盘] Ctrl 松开");
+        }
         else if (e.Key == Windows.System.VirtualKey.Shift)
+        {
             _isShiftPressed = false;
+            System.Diagnostics.Debug.WriteLine("[键盘] Shift 松开");
+        }
     }
 #endif
 

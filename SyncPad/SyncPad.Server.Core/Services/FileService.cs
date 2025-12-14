@@ -151,6 +151,28 @@ public class FileService : IFileService
                 LastAccessedAt = DateTime.UtcNow
             };
             _context.FileContents.Add(fileContent);
+
+            // 尝试保存 FileContent，处理并发冲突
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+                when (ex.InnerException is Microsoft.Data.Sqlite.SqliteException sqliteEx
+                      && sqliteEx.SqliteErrorCode == 19) // UNIQUE constraint failed
+            {
+                // 并发冲突：另一个请求已经插入了相同 hash 的记录
+                // 回滚并重新查询
+                _context.Entry(fileContent).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+                fileContent = await _context.FileContents
+                    .FirstOrDefaultAsync(fc => fc.ContentHash == hash);
+
+                if (fileContent == null)
+                {
+                    // 仍然找不到，抛出原始异常
+                    throw;
+                }
+            }
         }
         else
         {

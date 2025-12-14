@@ -74,6 +74,7 @@ public class PadViewModel : BaseViewModel, IDisposable
 
     public ICommand LogoutCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand RefreshFilesCommand { get; }
     public ICommand SelectFileCommand { get; }
     public ICommand PreloadFileCommand { get; }
     public ICommand OpenFileCommand { get; }
@@ -133,6 +134,7 @@ public class PadViewModel : BaseViewModel, IDisposable
 
         LogoutCommand = new Command(async () => await LogoutAsync());
         RefreshCommand = new Command(async () => await RefreshTextAsync());
+        RefreshFilesCommand = new Command(async () => await RefreshFilesAsync());
         SelectFileCommand = new Command(async () => await SelectFileAsync());
         PreloadFileCommand = new Command<SelectableFileItem>(async f => await PreloadFileAsync(f));
         OpenFileCommand = new Command<SelectableFileItem>(async f => await OpenFileAsync(f));
@@ -290,9 +292,14 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] RefreshFilesInternalAsync - 开始刷新文件列表");
             var response = await _fileClient.GetFilesAsync();
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] RefreshFilesInternalAsync - Success={response.Success}, Data={response.Data != null}");
+
             if (response.Success && response.Data != null)
             {
+                System.Diagnostics.Debug.WriteLine($"[PadViewModel] RefreshFilesInternalAsync - 文件数量: {response.Data.Files.Count}");
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     Files.Clear();
@@ -301,24 +308,57 @@ public class PadViewModel : BaseViewModel, IDisposable
                     // 直接添加到集合，FileGridView 会根据 Position(X,Y) 定位每个文件
                     foreach (var file in response.Data.Files)
                     {
+                        System.Diagnostics.Debug.WriteLine($"[PadViewModel] 添加文件: {file.FileName}, Position=({file.PositionX},{file.PositionY})");
                         var item = new SelectableFileItem(file)
                         {
                             Status = _cacheManager.GetFileStatus(file.Id),
                             DownloadProgress = _cacheManager.GetDownloadProgress(file.Id)
                         };
                         Files.Add(item);
+
+                        // Windows 平台：异步加载真实文件图标
+#if WINDOWS
+                        _ = LoadFileIconAsync(item);
+#endif
                     }
 
+                    System.Diagnostics.Debug.WriteLine($"[PadViewModel] Files.Count = {Files.Count}");
                     OnPropertyChanged(nameof(HasFiles));
                     OnPropertyChanged(nameof(HasNoFiles));
+                });
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[PadViewModel] RefreshFilesInternalAsync - 失败: {response.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] RefreshFilesInternalAsync - 异常: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] StackTrace: {ex.StackTrace}");
+        }
+    }
+
+#if WINDOWS
+    private async Task LoadFileIconAsync(SelectableFileItem item)
+    {
+        try
+        {
+            var icon = await Platforms.Windows.FileIconService.GetIconForFileNameAsync(item.FileName, large: true);
+            if (icon != null)
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    item.NativeIcon = icon;
                 });
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"刷新文件列表失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"加载文件图标失败 ({item.FileName}): {ex.Message}");
         }
     }
+#endif
 
     private async Task SelectFileAsync()
     {
@@ -344,6 +384,9 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - 开始上传文件: {fileResult.FileName}");
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - Token: {(_authManager.Token != null ? _authManager.Token[..Math.Min(20, _authManager.Token.Length)] : "null")}...");
+
             // 检查同名文件
             if (await _fileClient.FileExistsAsync(fileResult.FileName))
             {
@@ -355,12 +398,21 @@ public class PadViewModel : BaseViewModel, IDisposable
                 if (!overwrite) return;
 
                 using var stream = await fileResult.OpenReadAsync();
-                await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType, overwrite: true);
+                var response = await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType, overwrite: true);
+
+                System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - 上传结果: Success={response.Success}, Error={response.ErrorMessage}");
+
+                if (!response.Success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                }
             }
             else
             {
                 using var stream = await fileResult.OpenReadAsync();
                 var response = await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType);
+
+                System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - 上传结果: Success={response.Success}, Error={response.ErrorMessage}");
 
                 if (!response.Success)
                 {
@@ -370,7 +422,8 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - 异常: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[PadViewModel] UploadFileAsync - StackTrace: {ex.StackTrace}");
         }
     }
 
@@ -483,14 +536,19 @@ public class PadViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private async Task DeleteFileAsync(SelectableFileItem file)
+    public async Task DeleteFileAsync(SelectableFileItem file, bool showConfirmation = true)
     {
         try
         {
-            var confirm = await Application.Current!.MainPage!.DisplayAlert(
-                "确认删除",
-                $"确定要删除文件 \"{file.FileName}\" 吗？",
-                "删除", "取消");
+            bool confirm = true;
+
+            if (showConfirmation)
+            {
+                confirm = await Application.Current!.MainPage!.DisplayAlert(
+                    "确认删除",
+                    $"确定要删除文件 \"{file.FileName}\" 吗？",
+                    "删除", "取消");
+            }
 
             if (confirm)
             {
@@ -745,7 +803,13 @@ public class PadViewModel : BaseViewModel, IDisposable
                         if (existing != null)
                             Files.Remove(existing);
 
-                        Files.Insert(0, new SelectableFileItem(message.File));
+                        var newItem = new SelectableFileItem(message.File);
+                        Files.Insert(0, newItem);
+
+                        // Windows 平台：异步加载真实文件图标
+#if WINDOWS
+                        _ = LoadFileIconAsync(newItem);
+#endif
                     }
                     break;
 
@@ -797,7 +861,8 @@ public class PadViewModel : BaseViewModel, IDisposable
                     {
                         Status = file.Status,
                         DownloadProgress = file.DownloadProgress,
-                        IsSelected = file.IsSelected
+                        IsSelected = file.IsSelected,
+                        NativeIcon = file.NativeIcon // 保留原图标
                     };
 
                     // 替换列表中的文件项
@@ -847,6 +912,44 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
+            // 先在本地更新UI（触发动画）
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var file = Files.FirstOrDefault(f => f.Id == fileId);
+                if (file != null && (file.PositionX != positionX || file.PositionY != positionY))
+                {
+                    var currentIndex = Files.IndexOf(file);
+
+                    // 创建更新的文件项（保留其他状态）
+                    var updatedDto = new FileItemDto
+                    {
+                        Id = file.Id,
+                        FileName = file.FileName,
+                        FileSize = file.FileSize,
+                        MimeType = file.MimeType,
+                        UploadedAt = file.UploadedAt,
+                        ExpiresAt = file.ExpiresAt,
+                        PositionX = positionX,
+                        PositionY = positionY
+                    };
+
+                    var updatedItem = new SelectableFileItem(updatedDto)
+                    {
+                        Status = file.Status,
+                        DownloadProgress = file.DownloadProgress,
+                        IsSelected = file.IsSelected,
+                        NativeIcon = file.NativeIcon // 保留原图标
+                    };
+
+                    // 替换列表中的文件项（触发动画）
+                    if (currentIndex >= 0)
+                    {
+                        Files[currentIndex] = updatedItem;
+                    }
+                }
+            });
+
+            // 然后同步到服务器
             await _textHubClient.UpdateFilePositionAsync(fileId, positionX, positionY);
         }
         catch (Exception ex)

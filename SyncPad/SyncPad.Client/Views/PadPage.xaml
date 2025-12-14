@@ -17,7 +17,7 @@
             <ColumnDefinition>
                 <ColumnDefinition.Width>
                     <OnIdiom x:TypeArguments="GridLength">
-                        <OnIdiom.Desktop>480</OnIdiom.Desktop>
+                        <OnIdiom.Desktop>540</OnIdiom.Desktop>
                         <OnIdiom.Tablet>0</OnIdiom.Tablet>
                         <OnIdiom.Phone>0</OnIdiom.Phone>
                     </OnIdiom>
@@ -162,24 +162,35 @@
             </Grid>
 
             <!-- 文件网格（自由定位布局） -->
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1" x:Name="FileAreaGrid">
+                <Grid.GestureRecognizers>
+                    <!-- 外层 Grid 的拖放支持（用于空状态） -->
+                    <DropGestureRecognizer AllowDrop="True"
+                                          DragOver="OnFileDragOver"
+                                          Drop="OnFileDrop"/>
+                    <!-- 点击空白处取消选择 -->
+                    <TapGestureRecognizer Tapped="OnFileAreaTapped"/>
+                </Grid.GestureRecognizers>
+
                 <!-- 空状态 -->
                 <StackLayout Padding="20" VerticalOptions="Center" IsVisible="{Binding HasNoFiles}">
                     <Label Text="暂无文件"
                            FontSize="14"
                            TextColor="Gray"
                            HorizontalTextAlignment="Center"/>
+                    <Label Text="拖入文件到此处上传"
+                           FontSize="12"
+                           TextColor="LightGray"
+                           HorizontalTextAlignment="Center"
+                           Margin="0,8,0,0"/>
                 </StackLayout>
 
-                <!-- 文件自由网格 -->
-                <controls:FileGridView ItemsSource="{Binding Files}"
-                                      IsVisible="{Binding HasFiles}"
-                                      x:Name="FileGridView">
-                    <controls:FileGridView.GestureRecognizers>
-                        <DropGestureRecognizer AllowDrop="True"
-                                              DragOver="OnFileDragOver"
-                                              Drop="OnFileDrop"/>
-                    </controls:FileGridView.GestureRecognizers>
+                <!-- 滚动容器 -->
+                <ScrollView IsVisible="{Binding HasFiles}" Orientation="Vertical">
+                    <!-- 文件自由网格 -->
+                    <controls:FileGridView ItemsSource="{Binding Files}"
+                                          x:Name="FileGridView">
+                        <!-- 移除 DropGestureRecognizer，使用 Windows 原生拖放处理 -->
 
                     <controls:FileGridView.ItemTemplate>
                         <DataTemplate>
@@ -195,14 +206,14 @@
                                 <Frame.Behaviors>
                                     <behaviors:FileDragDropBehavior />
                                 </Frame.Behaviors>
-                                <Frame.GestureRecognizers>
-                                    <DragGestureRecognizer CanDrag="True"
-                                                          DragStarting="OnDragStarting"
-                                                          DropCompleted="OnDropCompleted"/>
-                                    <DropGestureRecognizer AllowDrop="True"
-                                                          DragOver="OnCardDragOver"
-                                                          Drop="OnCardDrop"/>
-                                </Frame.GestureRecognizers>
+                                <!-- 右键菜单 -->
+                                <FlyoutBase.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
+                                    </MenuFlyout>
+                                </FlyoutBase.ContextFlyout>
+                                <!-- Windows 平台使用原生拖放，移除 MAUI GestureRecognizer -->
 
                                 <Grid RowSpacing="4">
                                     <Grid.RowDefinitions>
@@ -214,11 +225,20 @@
 
                                     <!-- 文件图标和状态角标 -->
                                     <Grid Grid.Row="0">
-                                        <!-- 文件图标 -->
+                                        <!-- Windows 原生文件图标（优先显示） -->
+                                        <Image Source="{Binding NativeIcon}"
+                                               WidthRequest="48"
+                                               HeightRequest="48"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding HasNativeIcon}"/>
+
+                                        <!-- Emoji 文件图标（后备） -->
                                         <Label Text="{Binding FileIcon}"
                                                FontSize="32"
                                                HorizontalOptions="Center"
-                                               VerticalOptions="Center"/>
+                                               VerticalOptions="Center"
+                                               IsVisible="{Binding HasNativeIcon, Converter={StaticResource InverseBoolConverter}}"/>
 
                                         <!-- 状态角标 -->
                                         <Label Text="{Binding StatusBadge}"
@@ -282,8 +302,9 @@
                                 </Grid>
                             </Frame>
                         </DataTemplate>
-                    </controls:FileGridView.ItemTemplate>
-                </controls:FileGridView>
+                        </controls:FileGridView.ItemTemplate>
+                    </controls:FileGridView>
+                </ScrollView>
             </Grid>
 
             <!-- 批量操作工具栏 -->
@@ -296,8 +317,6 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <Label Grid.Column="0"
@@ -306,26 +325,6 @@
                        FontSize="12"/>
 
                 <Button Grid.Column="1"
-                        Text="复制"
-                        Command="{Binding BatchCopyCommand}"
-                        BackgroundColor="#17A2B8"
-                        TextColor="White"
-                        CornerRadius="4"
-                        Padding="8,5"
-                        Margin="5,0"
-                        FontSize="12"/>
-
-                <Button Grid.Column="2"
-                        Text="导出"
-                        Command="{Binding BatchExportCommand}"
-                        BackgroundColor="#FFC107"
-                        TextColor="Black"
-                        CornerRadius="4"
-                        Padding="8,5"
-                        Margin="5,0"
-                        FontSize="12"/>
-
-                <Button Grid.Column="3"
                         Text="下载"
                         Command="{Binding BatchDownloadCommand}"
                         BackgroundColor="#28A745"
@@ -335,7 +334,7 @@
                         Margin="5,0"
                         FontSize="12"/>
 
-                <Button Grid.Column="4"
+                <Button Grid.Column="2"
                         Text="删除"
                         Command="{Binding BatchDeleteCommand}"
                         BackgroundColor="#DC3545"
@@ -345,7 +344,7 @@
                         Margin="5,0"
                         FontSize="12"/>
 
-                <Button Grid.Column="5"
+                <Button Grid.Column="3"
                         Text="取消"
                         Command="{Binding ClearSelectionCommand}"
                         BackgroundColor="#6C757D"
@@ -562,6 +561,13 @@
                                             <Frame.Behaviors>
                                                 <behaviors:FileDragDropBehavior />
                                             </Frame.Behaviors>
+                                            <!-- 右键菜单（移动端可能不显示，但保持一致） -->
+                                            <FlyoutBase.ContextFlyout>
+                                                <MenuFlyout>
+                                                    <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                                    <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
+                                                </MenuFlyout>
+                                            </FlyoutBase.ContextFlyout>
 
                                             <Grid RowSpacing="4">
                                                 <Grid.RowDefinitions>
@@ -664,7 +670,7 @@
                                FontSize="12"/>
 
                         <Button Grid.Column="1"
-                                Text="批量下载"
+                                Text="下载"
                                 Command="{Binding BatchDownloadCommand}"
                                 BackgroundColor="#28A745"
                                 TextColor="White"
@@ -674,7 +680,7 @@
                                 FontSize="12"/>
 
                         <Button Grid.Column="2"
-                                Text="批量删除"
+                                Text="删除"
                                 Command="{Binding BatchDeleteCommand}"
                                 BackgroundColor="#DC3545"
                                 TextColor="White"

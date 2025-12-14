@@ -29,7 +29,6 @@
         <div class="mobile-edit-toolbar">
             <button class="btn-mobile" @onclick="SelectAllText">全选</button>
             <button class="btn-mobile" @onclick="CopyText">复制</button>
-            <button class="btn-mobile" @onclick="PasteText">粘贴</button>
             <button class="btn-mobile btn-delete" @onclick="ClearText">清空</button>
         </div>
 
@@ -88,6 +87,7 @@
                 @foreach (var file in _files)
                 {
                     <div class="file-card @(file.IsSelected ? "selected" : "") @(_draggedFile == file ? "dragging" : "")"
+                         data-file-id="@file.File.Id"
                          style="left: @(file.File.PositionX * 122 + 10)px; top: @(file.File.PositionY * 122 + 10)px;"
                          draggable="true"
                          @ondragstart="(e) => OnDragStart(e, file)"
@@ -118,6 +118,16 @@
             @if (_showDropIndicator)
             {
                 <div class="drop-indicator" style="left: @(_dropIndicatorX)px; top: @(_dropIndicatorY)px;"></div>
+            }
+
+            <!-- 右键菜单 -->
+            @if (_contextMenuVisible && _contextMenuFile != null)
+            {
+                <div class="context-menu" style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;" @onclick:stopPropagation="true">
+                    <div class="context-menu-item" @onclick="() => DownloadFile(_contextMenuFile)">打开/下载</div>
+                    <div class="context-menu-separator"></div>
+                    <div class="context-menu-item context-menu-danger" @onclick="() => DeleteFileFromContextMenu(_contextMenuFile)">删除</div>
+                </div>
             }
         </div>
 
@@ -472,6 +482,43 @@
         color: #666;
     }
 
+    /* 右键菜单 */
+    .context-menu {
+        position: absolute;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        z-index: 1000;
+        min-width: 150px;
+        padding: 4px 0;
+    }
+
+    .context-menu-item {
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .context-menu-item:hover {
+        background-color: #f0f0f0;
+    }
+
+    .context-menu-danger {
+        color: #dc3545;
+    }
+
+    .context-menu-danger:hover {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .context-menu-separator {
+        height: 1px;
+        background-color: #e0e0e0;
+        margin: 4px 0;
+    }
+
     /* 响应式设计 */
     @@media (max-width: 768px) {
         .pad-layout {
@@ -535,6 +582,13 @@
     private const int CellSpacing = 2;
     private const int GridPadding = 10;
 
+    // 右键菜单状态
+    private bool _contextMenuVisible = false;
+    private int _contextMenuX = 0;
+    private int _contextMenuY = 0;
+    private SelectableFileItemWeb? _contextMenuFile = null;
+    private DotNetObjectReference<Pad>? _contextMenuDotNetRef;
+
     protected override void OnInitialized()
     {
         // 订阅事件（只订阅一次）
@@ -563,6 +617,13 @@
             // 初始化拖放区域的 JS 互操作
             _dotNetRef = DotNetObjectReference.Create(this);
             await JSRuntime.InvokeVoidAsync("DragDropInterop.initDropZone", _fileGridRef, _dotNetRef);
+
+            // 初始化右键菜单的 JS 互操作
+            _contextMenuDotNetRef = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("DragDropInterop.initContextMenu", _fileGridRef, _contextMenuDotNetRef);
+
+            // 初始化键盘快捷键的 JS 互操作
+            await JSRuntime.InvokeVoidAsync("DragDropInterop.initKeyboardShortcuts", _contextMenuDotNetRef);
 
             // 连接 SignalR
             await ConnectToHub();
@@ -733,44 +794,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"复制失败: {ex.Message}");
-        }
-    }
-
-    // 移动端工具栏按钮：粘贴
-    private async Task PasteText()
-    {
-        try
-        {
-            // iOS 要求 clipboard API 必须在用户手势中直接调用
-            // 如果失败，聚焦文本框并提示用户手动粘贴
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                (async function() {
-                    var textarea = document.getElementById('syncpad-textarea');
-                    if (!textarea) return;
-
-                    textarea.focus();
-
-                    try {
-                        if (navigator.clipboard && navigator.clipboard.readText) {
-                            var text = await navigator.clipboard.readText();
-                            if (text) {
-                                textarea.value = text;
-                                textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                                return;
-                            }
-                        }
-                    } catch (err) {
-                        // iOS 限制，降级处理
-                    }
-
-                    // 降级：提示用户手动粘贴
-                    alert('iOS 限制了自动粘贴，请在输入框内【长按】并选择【粘贴】');
-                })();
-            ");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"粘贴失败: {ex.Message}");
         }
     }
 
@@ -974,6 +997,65 @@
     {
         // 如果点击的是空白区域（不是文件卡片），取消所有选中
         ClearSelection();
+
+        // 隐藏右键菜单
+        _contextMenuVisible = false;
+        StateHasChanged();
+    }
+
+    // 显示右键菜单（通过 JS 互操作调用）
+    [JSInvokable]
+    public void ShowContextMenuJS(int fileId, double clientX, double clientY)
+    {
+        var file = _files.FirstOrDefault(f => f.File.Id == fileId);
+        if (file != null)
+        {
+            Console.WriteLine($"ShowContextMenuJS 被调用: 文件={file.File.FileName}, ClientX={clientX}, ClientY={clientY}");
+            _contextMenuFile = file;
+            _contextMenuX = (int)clientX;
+            _contextMenuY = (int)clientY;
+            _contextMenuVisible = true;
+            Console.WriteLine($"菜单状态: visible={_contextMenuVisible}, X={_contextMenuX}, Y={_contextMenuY}");
+            StateHasChanged();
+        }
+    }
+
+    // 隐藏右键菜单（通过 JS 互操作调用）
+    [JSInvokable]
+    public void HideContextMenu()
+    {
+        _contextMenuVisible = false;
+        StateHasChanged();
+    }
+
+    // 键盘快捷键：全选所有文件（通过 JS 互操作调用）
+    [JSInvokable]
+    public void SelectAllFiles()
+    {
+        foreach (var file in _files)
+        {
+            file.IsSelected = true;
+        }
+        StateHasChanged();
+    }
+
+    // 键盘快捷键：删除选中的文件（通过 JS 互操作调用）
+    [JSInvokable]
+    public async Task DeleteSelectedFiles()
+    {
+        var selectedFiles = _files.Where(f => f.IsSelected).ToList();
+        foreach (var file in selectedFiles)
+        {
+            await DeleteFile(file);
+        }
+    }
+
+    // 从右键菜单删除文件（无需确认）
+    private async Task DeleteFileFromContextMenu(SelectableFileItemWeb file)
+    {
+        _contextMenuVisible = false;
+        await DeleteFile(file);
+        StateHasChanged();
     }
 
     // 内部拖放事件处理
@@ -1039,6 +1121,13 @@
             // 计算目标网格位置
             var gridPos = CalculateGridPosition(e.OffsetX, e.OffsetY);
             Console.WriteLine($"OnGridDrop: 计算的网格位置=({gridPos.X}, {gridPos.Y})");
+
+            // 检查是否拖到原位置，如果是则直接返回
+            if (draggedFile.File.PositionX == gridPos.X && draggedFile.File.PositionY == gridPos.Y)
+            {
+                Console.WriteLine($"OnGridDrop: 文件被放回原位置，忽略更新");
+                return;
+            }
 
             // 检查 TextHubClient 是否为 null
             if (TextHubClient == null)
@@ -1123,10 +1212,14 @@
 
     // JS 互操作回调：外部文件拖入
     [JSInvokable]
-    public async Task OnFilesDropped(FileDropInfo[] files)
+    public async Task OnFilesDropped(FileDropInfo[] files, double offsetX, double offsetY)
     {
         if (files == null || files.Length == 0)
             return;
+
+        // 计算网格位置
+        var gridPos = CalculateGridPosition(offsetX, offsetY);
+        Console.WriteLine($"OnFilesDropped: 拖放位置=({offsetX}, {offsetY}), 网格位置=({gridPos.X}, {gridPos.Y})");
 
         for (int i = 0; i < files.Length; i++)
         {
@@ -1145,6 +1238,17 @@
 
                     // 上传文件
                     await FileClient.UploadFileAsync(fileData.Name, stream, fileData.Type, overwrite);
+
+                    // 等待文件同步
+                    await Task.Delay(500);
+
+                    // 查找刚上传的文件并设置位置
+                    var uploadedFile = _files.FirstOrDefault(f => f.File.FileName == fileData.Name);
+                    if (uploadedFile != null)
+                    {
+                        Console.WriteLine($"设置文件 {fileData.Name} 位置到 ({gridPos.X}, {gridPos.Y})");
+                        await TextHubClient.UpdateFilePositionAsync(uploadedFile.File.Id, gridPos.X, gridPos.Y);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1244,6 +1348,7 @@
         _throttleCts?.Cancel();
         _throttleCts?.Dispose();
         _dotNetRef?.Dispose();
+        _contextMenuDotNetRef?.Dispose();
     }
 
     // Web 专用的可选择文件项

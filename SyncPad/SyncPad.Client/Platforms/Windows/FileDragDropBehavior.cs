@@ -59,7 +59,7 @@ public class FileDragDropBehavior : Behavior<View>
         _currentDraggedItem = fileItem;
 
         args.Data.SetText($"SyncPad-Internal-Drag-{fileItem.Id}");
-        args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Move;
+        args.Data.RequestedOperation = Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
 
         try
         {

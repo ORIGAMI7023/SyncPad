@@ -39,13 +39,22 @@ public static class MauiProgram
             return new ApiClient(httpClient);
         });
 
+        // 注册 FileClient 为单例（使用 HttpClientFactory）
+        builder.Services.AddSingleton<IFileClient>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = factory.CreateClient("SyncPadApi");
+            var authManager = sp.GetRequiredService<IAuthManager>();
+            var apiClient = sp.GetRequiredService<IApiClient>();
+            return new FileClient(httpClient, authManager, apiClient);
+        });
+
         // 注册平台特定服务
         builder.Services.AddPlatformServices();
 
         // 注册共享服务
         builder.Services.AddSingleton<IAuthManager, AuthManager>();
         builder.Services.AddSingleton<ITextHubClient, TextHubClient>();
-        builder.Services.AddSingleton<IFileClient, FileClient>();
         builder.Services.AddSingleton<IFileCacheManager, FileCacheManager>();
         builder.Services.AddSingleton<IFileOperationService, FileOperationService>();
 
