@@ -16,11 +16,12 @@ struct macOSContentView: View {
                 text: $viewModel.textContent,
                 onTextChanged: viewModel.onTextChanged
             )
-            .frame(minWidth: 300)
+            .frame(minWidth: 400, idealWidth: 600)
+            .layoutPriority(1)
 
             // 右侧：文件区
             FileGridView(viewModel: viewModel, enableDragDrop: true)
-                .frame(minWidth: 300)
+                .frame(minWidth: 250, idealWidth: 350, maxWidth: 500)
         }
         .toolbar {
             ToolbarItem(placement: .automatic) {

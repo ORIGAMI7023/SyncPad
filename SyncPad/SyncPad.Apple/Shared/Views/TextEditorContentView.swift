@@ -21,31 +21,17 @@ struct TextEditorContentView: View {
             Divider()
 
             // Text Editor
-            #if os(macOS)
             TextEditor(text: $localText)
                 .font(.body)
                 .padding(8)
-                .onChange(of: localText) { _, newValue in
+                .onChange(of: localText) { newValue in
                     onTextChanged(newValue)
                 }
-                .onChange(of: text) { _, newValue in
+                .onChange(of: text) { newValue in
                     if localText != newValue {
                         localText = newValue
                     }
                 }
-            #else
-            TextEditor(text: $localText)
-                .font(.body)
-                .padding(8)
-                .onChange(of: localText) { _, newValue in
-                    onTextChanged(newValue)
-                }
-                .onChange(of: text) { _, newValue in
-                    if localText != newValue {
-                        localText = newValue
-                    }
-                }
-            #endif
         }
         .onAppear {
             localText = text

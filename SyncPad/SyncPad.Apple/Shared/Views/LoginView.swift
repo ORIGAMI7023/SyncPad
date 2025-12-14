@@ -26,9 +26,9 @@ struct LoginView: View {
                 // Username
                 TextField("用户名", text: $viewModel.username)
                     .textFieldStyle(.roundedBorder)
+                    #if os(iOS)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    #if os(iOS)
                     .keyboardType(.asciiCapable)
                     #endif
 
