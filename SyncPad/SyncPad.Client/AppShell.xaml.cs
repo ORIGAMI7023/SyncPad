@@ -4,29 +4,34 @@ namespace SyncPad.Client
 {
     public partial class AppShell : Shell
     {
-        private readonly IAuthManager _authManager;
-
         public AppShell()
         {
             InitializeComponent();
-
-            // 从依赖注入容器获取 AuthManager
-            _authManager = Handler?.MauiContext?.Services.GetRequiredService<IAuthManager>()
-                ?? throw new InvalidOperationException("无法获取 IAuthManager 服务");
         }
 
         protected override async void OnHandlerChanged()
         {
             base.OnHandlerChanged();
 
-            if (Handler != null)
+            if (Handler?.MauiContext?.Services != null)
             {
-                // 尝试恢复会话
-                var restored = await _authManager.TryRestoreSessionAsync();
-                if (restored)
+                try
                 {
-                    // 会话恢复成功，导航到主页面
-                    await GoToAsync("//PadPage");
+                    var authManager = Handler.MauiContext.Services.GetService(typeof(IAuthManager)) as IAuthManager;
+                    if (authManager != null)
+                    {
+                        // 尝试恢复会话
+                        var restored = await authManager.TryRestoreSessionAsync();
+                        if (restored)
+                        {
+                            // 会话恢复成功，导航到主页面
+                            await GoToAsync("//PadPage");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"自动登录失败: {ex.Message}");
                 }
             }
         }
