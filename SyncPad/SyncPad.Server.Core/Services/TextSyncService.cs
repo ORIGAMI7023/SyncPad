@@ -27,6 +27,10 @@ public class TextSyncService : ITextSyncService
             return null;
         }
 
+        // 更新最后访问时间
+        textContent.LastAccessedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
         return new TextSyncMessage
         {
             Content = textContent.Content,
@@ -49,7 +53,8 @@ public class TextSyncService : ITextSyncService
             {
                 UserId = userId,
                 Content = content,
-                UpdatedAt = now
+                UpdatedAt = now,
+                LastAccessedAt = now
             };
             _context.TextContents.Add(textContent);
         }
@@ -58,6 +63,7 @@ public class TextSyncService : ITextSyncService
             // 更新现有的
             textContent.Content = content;
             textContent.UpdatedAt = now;
+            textContent.LastAccessedAt = now;
         }
 
         await _context.SaveChangesAsync();

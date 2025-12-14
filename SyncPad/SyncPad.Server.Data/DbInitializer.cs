@@ -45,7 +45,8 @@ public static class DbInitializer
         {
             UserId = adminUser.Id,
             Content = "",
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            LastAccessedAt = DateTime.UtcNow
         };
 
         context.TextContents.Add(textContent);

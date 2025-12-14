@@ -46,10 +46,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Console.WriteLine($"[JWT] 认证失败: {context.Exception.Message}");
                 return Task.CompletedTask;
             },
-            OnTokenValidated = context =>
+            OnTokenValidated = async context =>
             {
+                var userIdClaim = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    // 验证用户是否仍然存在于数据库
+                    var dbContext = context.HttpContext.RequestServices.GetRequiredService<SyncPadDbContext>();
+                    var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId);
+
+                    if (!userExists)
+                    {
+                        Console.WriteLine($"[JWT] 用户 {userId} 已被删除，拒绝访问");
+                        context.Fail("用户已被删除");
+                        return;
+                    }
+                }
+
                 Console.WriteLine($"[JWT] Token 验证成功: {context.Principal?.Identity?.Name}");
-                return Task.CompletedTask;
             },
             OnMessageReceived = context =>
             {
@@ -80,6 +94,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITextSyncService, TextSyncService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddHostedService<SyncPad.Server.Services.FileCleanupService>();
+builder.Services.AddHostedService<SyncPad.Server.Services.TextCleanupService>();
 
 // 配置 CORS
 builder.Services.AddCors(options =>
