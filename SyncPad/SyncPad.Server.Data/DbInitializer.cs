@@ -12,7 +12,7 @@ public static class DbInitializer
     /// <summary>
     /// 初始化数据库并创建种子数据
     /// </summary>
-    public static void Initialize(SyncPadDbContext context)
+    public static void Initialize(SyncPadDbContext context, string? adminUsername = null, string? adminPassword = null)
     {
         // 确保数据库已创建（不使用迁移）
         context.Database.EnsureCreated();
@@ -23,11 +23,17 @@ public static class DbInitializer
             return;
         }
 
-        // 创建默认管理员账户
+        // 必须提供管理员账户信息
+        if (string.IsNullOrEmpty(adminUsername) || string.IsNullOrEmpty(adminPassword))
+        {
+            throw new InvalidOperationException("必须在配置文件中提供 DefaultAdmin:Username 和 DefaultAdmin:Password");
+        }
+
+        // 创建管理员账户
         var adminUser = new User
         {
-            Username = "admin",
-            PasswordHash = HashPassword("123456"),
+            Username = adminUsername,
+            PasswordHash = HashPassword(adminPassword),
             CreatedAt = DateTime.UtcNow
         };
 

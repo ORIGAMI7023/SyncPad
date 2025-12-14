@@ -123,7 +123,13 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SyncPadDbContext>();
-    DbInitializer.Initialize(context);
+    var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+    // 从配置中读取管理员账户（如果有）
+    var adminUsername = config["DefaultAdmin:Username"];
+    var adminPassword = config["DefaultAdmin:Password"];
+
+    DbInitializer.Initialize(context, adminUsername, adminPassword);
 }
 
 // 配置 HTTP 管道
