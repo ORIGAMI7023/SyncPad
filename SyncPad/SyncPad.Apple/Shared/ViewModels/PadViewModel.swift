@@ -55,13 +55,15 @@ class PadViewModel: ObservableObject {
         signalR.onTextUpdate = { [weak self] message in
             Task { @MainActor in
                 guard let self = self else { return }
-                // 避免回显自己的更新
-                if message.senderId != self.authManager.userId {
-                    self.isReceivingUpdate = true
-                    self.textContent = message.content
-                    self.lastSentContent = message.content
-                    self.isReceivingUpdate = false
-                }
+                print("🔄 PadViewModel 收到文本更新: senderId=\(message.senderId), content length=\(message.content.count)")
+                print("✅ 应用文本更新")
+
+                // 服务端已使用 OthersInGroup 过滤，不会发回给发送者自己的连接
+                // 所以直接应用更新即可（同账号多设备同步场景）
+                self.isReceivingUpdate = true
+                self.textContent = message.content
+                self.lastSentContent = message.content
+                self.isReceivingUpdate = false
             }
         }
 

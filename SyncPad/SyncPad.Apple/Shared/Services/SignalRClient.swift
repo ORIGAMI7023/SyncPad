@@ -38,6 +38,9 @@ class SignalRClient: NSObject, ObservableObject {
             let dateString = try container.decode(String.self)
 
             let formats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSSS'Z'",  // .NET 7位小数 + Z
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'",   // 6位小数 + Z
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",      // 3位小数 + Z
                 "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
                 "yyyy-MM-dd'T'HH:mm:ss.SSS",
                 "yyyy-MM-dd'T'HH:mm:ss",
@@ -193,7 +196,7 @@ class SignalRClient: NSObject, ObservableObject {
             case .failure(let error):
                 print("WebSocket receive error: \(error)")
                 Task { @MainActor in
-                    await self?.handleConnectionFailure()
+                    await self.handleConnectionFailure()
                 }
             }
         }
@@ -268,13 +271,27 @@ class SignalRClient: NSObject, ObservableObject {
 
     private func handleInvocation(_ json: [String: Any]) {
         guard let target = json["target"] as? String,
-              let arguments = json["arguments"] as? [Any] else { return }
+              let arguments = json["arguments"] as? [Any] else {
+            print("⚠️ 无法解析 invocation: target 或 arguments 缺失")
+            return
+        }
+
+        print("📨 收到 invocation: \(target)")
 
         switch target {
         case "ReceiveTextUpdate":
+            print("📝 处理文本更新消息...")
+            guard arguments.count > 0 else {
+                print("❌ ReceiveTextUpdate: arguments 为空")
+                return
+            }
+
             if let argData = try? JSONSerialization.data(withJSONObject: arguments[0]),
                let message = try? decoder.decode(TextSyncMessage.self, from: argData) {
+                print("✅ 文本消息解析成功: senderId=\(message.senderId), content length=\(message.content.count)")
                 onTextUpdate?(message)
+            } else {
+                print("❌ 文本消息解析失败，原始数据: \(arguments[0])")
             }
 
         case "ReceiveFileUpdate":
