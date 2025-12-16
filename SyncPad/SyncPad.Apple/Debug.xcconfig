@@ -1,0 +1,4 @@
+// Debug 配置 - 禁用代码签名以避免钥匙串密码提示
+CODE_SIGN_IDENTITY =
+CODE_SIGNING_REQUIRED = NO
+CODE_SIGNING_ALLOWED = NO
