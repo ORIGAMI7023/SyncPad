@@ -30,7 +30,13 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
             {
                 options.AccessTokenProvider = () => Task.FromResult<string?>(token);
             })
-            .WithAutomaticReconnect()
+            .WithAutomaticReconnect(new[] {
+                TimeSpan.Zero,
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(5),
+                TimeSpan.FromSeconds(10),
+                TimeSpan.FromSeconds(30)
+            })
             .Build();
 
         // 监听连接状态变化
@@ -76,8 +82,17 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
             FilePositionChanged?.Invoke(fileId, positionX, positionY);
         });
 
-        await _hubConnection.StartAsync();
-        ConnectionStateChanged?.Invoke(true);
+        try
+        {
+            await _hubConnection.StartAsync();
+            ConnectionStateChanged?.Invoke(true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TextHubClient] 连接失败: {ex.Message}");
+            ConnectionStateChanged?.Invoke(false);
+            throw;
+        }
     }
 
     public async Task DisconnectAsync()
@@ -95,7 +110,17 @@ public class TextHubClient : ITextHubClient, IAsyncDisposable
     {
         if (_hubConnection?.State == HubConnectionState.Connected)
         {
-            await _hubConnection.InvokeAsync("SendTextUpdate", content);
+            try
+            {
+                await _hubConnection.InvokeAsync("SendTextUpdate", content);
+            }
+            catch (HubException ex)
+            {
+                Console.WriteLine($"[TextHubClient] SendTextUpdate 失败: {ex.Message}");
+                // 认证失败，断开连接
+                await DisconnectAsync();
+                throw;
+            }
         }
     }
 

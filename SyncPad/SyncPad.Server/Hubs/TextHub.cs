@@ -56,7 +56,7 @@ public class TextHub : Hub
         var userId = GetUserId();
         if (userId == null)
         {
-            return;
+            throw new HubException("用户未认证或已被删除，请重新登录");
         }
 
         // 保存到数据库
@@ -74,7 +74,7 @@ public class TextHub : Hub
         var userId = GetUserId();
         if (userId == null)
         {
-            return;
+            throw new HubException("用户未认证或已被删除，请重新登录");
         }
 
         var text = await _textSyncService.GetTextAsync(userId.Value);
@@ -92,7 +92,7 @@ public class TextHub : Hub
         var userId = GetUserId();
         if (userId == null)
         {
-            return;
+            throw new HubException("用户未认证或已被删除，请重新登录");
         }
 
         var files = await _fileService.GetFilesAsync(userId.Value);
@@ -107,7 +107,7 @@ public class TextHub : Hub
         var userId = GetUserId();
         if (userId == null)
         {
-            return;
+            throw new HubException("用户未认证或已被删除，请重新登录");
         }
 
         // 更新数据库

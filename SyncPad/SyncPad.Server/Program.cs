@@ -62,6 +62,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     {
                         Console.WriteLine($"[JWT] 用户ID {userId} 不存在，拒绝访问");
                         context.Fail("用户不存在");
+                        context.Response.StatusCode = 401;
                         return;
                     }
 
@@ -69,6 +70,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     {
                         Console.WriteLine($"[JWT] Token用户名 {usernameClaim.Value} 与数据库用户名 {user.Username} 不匹配，拒绝访问");
                         context.Fail("用户名不匹配");
+                        context.Response.StatusCode = 401;
                         return;
                     }
                 }
