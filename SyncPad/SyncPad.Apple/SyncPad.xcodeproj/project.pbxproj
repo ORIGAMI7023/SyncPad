@@ -1,0 +1,540 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01CF08CBC9DD2185D7E7C2AE /* TextEditorContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE38719E66952E68A55F3936 /* TextEditorContentView.swift */; };
+		06B08B1A8A493E32AC5544FC /* FileItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694277FFB9DA2D0579C19EE1 /* FileItemView.swift */; };
+		07EB0A6DFAC1E2202074CE87 /* TextSyncMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561B71488BFE4E7FF1909A79 /* TextSyncMessage.swift */; };
+		0E845DF0B3A50E2086C9F6C0 /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE071E2070F2184D7FD84659 /* ApiClient.swift */; };
+		20C4EA0D5D2E8B44196F1A64 /* SignalRClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC30304009ED778D6BA3131 /* SignalRClient.swift */; };
+		22C747604D932608C87B06C3 /* PadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390177233064353E0B709E17 /* PadViewModel.swift */; };
+		2E3BCDB0F451DB224882252E /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238EA98ADA4DBD165862C1CF /* ContentView.swift */; };
+		3142DAEBF4DFF1C2F976054F /* FileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */; };
+		3D1F49404E579DF939099D7B /* FileGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754307AB6737A23B8E44E6CF /* FileGridView.swift */; };
+		42FD01C72D1F8B0B1DAF0FA8 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85AA431C64CB524AD307B5E /* LoginView.swift */; };
+		4C59EF92E9A551357DA1642E /* LoginModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43BFFDD57ECEBAF4BC9B5C75 /* LoginModels.swift */; };
+		5219F1B39F4019C4CCA6AA9B /* TextSyncMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561B71488BFE4E7FF1909A79 /* TextSyncMessage.swift */; };
+		548AB74339880ED2E4A195E0 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85AA431C64CB524AD307B5E /* LoginView.swift */; };
+		58B97EA15D9C53C60778F290 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DE9EC00A5A6B0B1552C368 /* LoginViewModel.swift */; };
+		5E1480DC093E211999CE7705 /* FileItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694277FFB9DA2D0579C19EE1 /* FileItemView.swift */; };
+		6DC41477EE75CC9F2159FAFF /* ApiResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA75A56DB703C5FFD800147 /* ApiResponse.swift */; };
+		795BDA2E8E146FC6E387D39A /* LoginModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43BFFDD57ECEBAF4BC9B5C75 /* LoginModels.swift */; };
+		803FCBD71C16FD54DF2C397E /* SyncPadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240C3E34019E54A98AAB8362 /* SyncPadApp.swift */; };
+		841BA38E7719CB47B0265161 /* FileClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D3FDEA0954040B7968FA49F /* FileClient.swift */; };
+		8E920EB67948A2FB5B31D466 /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE071E2070F2184D7FD84659 /* ApiClient.swift */; };
+		8F74901EAB9C50F2331666D4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17003F9D5134AA8A17A9631D /* ContentView.swift */; };
+		9F3E775DBAB3729E41CE0C6D /* FileClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D3FDEA0954040B7968FA49F /* FileClient.swift */; };
+		A05B774606215CEC587B0102 /* ApiResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA75A56DB703C5FFD800147 /* ApiResponse.swift */; };
+		A3B93EDC179A4EEBC7855272 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F4E74163EFB65C600D332B /* AuthManager.swift */; };
+		AD687EF1DCDBB6B84D4F5380 /* TextEditorContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE38719E66952E68A55F3936 /* TextEditorContentView.swift */; };
+		AF61CD46C6387EBA0F0476B4 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F4E74163EFB65C600D332B /* AuthManager.swift */; };
+		B3B9751C8C207B660AD72B52 /* PadViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390177233064353E0B709E17 /* PadViewModel.swift */; };
+		BADDB9811181E37077C0B6B1 /* FileGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 754307AB6737A23B8E44E6CF /* FileGridView.swift */; };
+		CBDE665A09E21EEA6B1E0BF7 /* SignalRClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC30304009ED778D6BA3131 /* SignalRClient.swift */; };
+		E8F108F24FB4C002A3F22A4A /* FileCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */; };
+		F62B41C6D0E543CF0477B2AE /* SyncPadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C85D5479E36DBE02777889 /* SyncPadApp.swift */; };
+		F857EC9047EC70FFABD928E3 /* FileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */; };
+		FC1451D1422BBC5C54408440 /* FileCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */; };
+		FC7399A5DE6CAF74A9AA8A75 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DE9EC00A5A6B0B1552C368 /* LoginViewModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		126E92C9A5F1D29D77368B7F /* SyncPad-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SyncPad-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		13C85D5479E36DBE02777889 /* SyncPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPadApp.swift; sourceTree = "<group>"; };
+		17003F9D5134AA8A17A9631D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		238EA98ADA4DBD165862C1CF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		240C3E34019E54A98AAB8362 /* SyncPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPadApp.swift; sourceTree = "<group>"; };
+		2DA75A56DB703C5FFD800147 /* ApiResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiResponse.swift; sourceTree = "<group>"; };
+		390177233064353E0B709E17 /* PadViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PadViewModel.swift; sourceTree = "<group>"; };
+		43BFFDD57ECEBAF4BC9B5C75 /* LoginModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginModels.swift; sourceTree = "<group>"; };
+		4906B969B089743CAAEAB192 /* SyncPad.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SyncPad.entitlements; sourceTree = "<group>"; };
+		5209005B45C1D8288195394E /* SyncPad.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SyncPad.entitlements; sourceTree = "<group>"; };
+		561B71488BFE4E7FF1909A79 /* TextSyncMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextSyncMessage.swift; sourceTree = "<group>"; };
+		633C51A5069876B1CA68B508 /* SyncPad-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "SyncPad-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		694277FFB9DA2D0579C19EE1 /* FileItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileItemView.swift; sourceTree = "<group>"; };
+		754307AB6737A23B8E44E6CF /* FileGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileGridView.swift; sourceTree = "<group>"; };
+		8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCacheManager.swift; sourceTree = "<group>"; };
+		9D3FDEA0954040B7968FA49F /* FileClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileClient.swift; sourceTree = "<group>"; };
+		AE38719E66952E68A55F3936 /* TextEditorContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEditorContentView.swift; sourceTree = "<group>"; };
+		BE071E2070F2184D7FD84659 /* ApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiClient.swift; sourceTree = "<group>"; };
+		C1DE9EC00A5A6B0B1552C368 /* LoginViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginViewModel.swift; sourceTree = "<group>"; };
+		C85AA431C64CB524AD307B5E /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		D1F4E74163EFB65C600D332B /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		EBC30304009ED778D6BA3131 /* SignalRClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalRClient.swift; sourceTree = "<group>"; };
+		F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileModels.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		3E4B3502AD0C433E6116DAC9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				633C51A5069876B1CA68B508 /* SyncPad-iOS.app */,
+				126E92C9A5F1D29D77368B7F /* SyncPad-macOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		54F1C4EBEE11EB49D91703DE /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				C1DE9EC00A5A6B0B1552C368 /* LoginViewModel.swift */,
+				390177233064353E0B709E17 /* PadViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		5B971F286C49936F1995D346 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				754307AB6737A23B8E44E6CF /* FileGridView.swift */,
+				694277FFB9DA2D0579C19EE1 /* FileItemView.swift */,
+				C85AA431C64CB524AD307B5E /* LoginView.swift */,
+				AE38719E66952E68A55F3936 /* TextEditorContentView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		706B58412A9E0F5C0FEF2D35 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				2DA75A56DB703C5FFD800147 /* ApiResponse.swift */,
+				F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */,
+				43BFFDD57ECEBAF4BC9B5C75 /* LoginModels.swift */,
+				561B71488BFE4E7FF1909A79 /* TextSyncMessage.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		7B1A4CAABDBCB9218E00EF01 = {
+			isa = PBXGroup;
+			children = (
+				ED96A61F846848B64DC5CC60 /* iOS */,
+				8E1A069043D93F4FC8DF0CAC /* macOS */,
+				C9CA056F0C9135B040ECC139 /* Shared */,
+				3E4B3502AD0C433E6116DAC9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8E1A069043D93F4FC8DF0CAC /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				238EA98ADA4DBD165862C1CF /* ContentView.swift */,
+				5209005B45C1D8288195394E /* SyncPad.entitlements */,
+				13C85D5479E36DBE02777889 /* SyncPadApp.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
+		976856FDF61D8E7910992493 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				BE071E2070F2184D7FD84659 /* ApiClient.swift */,
+				D1F4E74163EFB65C600D332B /* AuthManager.swift */,
+				8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */,
+				9D3FDEA0954040B7968FA49F /* FileClient.swift */,
+				EBC30304009ED778D6BA3131 /* SignalRClient.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		C9CA056F0C9135B040ECC139 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				706B58412A9E0F5C0FEF2D35 /* Models */,
+				976856FDF61D8E7910992493 /* Services */,
+				54F1C4EBEE11EB49D91703DE /* ViewModels */,
+				5B971F286C49936F1995D346 /* Views */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		ED96A61F846848B64DC5CC60 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				17003F9D5134AA8A17A9631D /* ContentView.swift */,
+				4906B969B089743CAAEAB192 /* SyncPad.entitlements */,
+				240C3E34019E54A98AAB8362 /* SyncPadApp.swift */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		32201E339D9A86C010621D95 /* SyncPad-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6F3194CEC38A9F6AABA53089 /* Build configuration list for PBXNativeTarget "SyncPad-iOS" */;
+			buildPhases = (
+				C57BEA44E64C74024C159040 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "SyncPad-iOS";
+			packageProductDependencies = (
+			);
+			productName = "SyncPad-iOS";
+			productReference = 633C51A5069876B1CA68B508 /* SyncPad-iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F840892444357A6112671781 /* SyncPad-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F423205CC1A604F6266A278 /* Build configuration list for PBXNativeTarget "SyncPad-macOS" */;
+			buildPhases = (
+				08C4A9485B1387F49DD4B6E2 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "SyncPad-macOS";
+			packageProductDependencies = (
+			);
+			productName = "SyncPad-macOS";
+			productReference = 126E92C9A5F1D29D77368B7F /* SyncPad-macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		47EB3429AB14C46C9507841A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					32201E339D9A86C010621D95 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					F840892444357A6112671781 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 5686FFF85AE4D4F4AE982B13 /* Build configuration list for PBXProject "SyncPad" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 7B1A4CAABDBCB9218E00EF01;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				32201E339D9A86C010621D95 /* SyncPad-iOS */,
+				F840892444357A6112671781 /* SyncPad-macOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		08C4A9485B1387F49DD4B6E2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0E845DF0B3A50E2086C9F6C0 /* ApiClient.swift in Sources */,
+				A05B774606215CEC587B0102 /* ApiResponse.swift in Sources */,
+				A3B93EDC179A4EEBC7855272 /* AuthManager.swift in Sources */,
+				2E3BCDB0F451DB224882252E /* ContentView.swift in Sources */,
+				FC1451D1422BBC5C54408440 /* FileCacheManager.swift in Sources */,
+				9F3E775DBAB3729E41CE0C6D /* FileClient.swift in Sources */,
+				3D1F49404E579DF939099D7B /* FileGridView.swift in Sources */,
+				5E1480DC093E211999CE7705 /* FileItemView.swift in Sources */,
+				F857EC9047EC70FFABD928E3 /* FileModels.swift in Sources */,
+				4C59EF92E9A551357DA1642E /* LoginModels.swift in Sources */,
+				548AB74339880ED2E4A195E0 /* LoginView.swift in Sources */,
+				FC7399A5DE6CAF74A9AA8A75 /* LoginViewModel.swift in Sources */,
+				22C747604D932608C87B06C3 /* PadViewModel.swift in Sources */,
+				20C4EA0D5D2E8B44196F1A64 /* SignalRClient.swift in Sources */,
+				F62B41C6D0E543CF0477B2AE /* SyncPadApp.swift in Sources */,
+				AD687EF1DCDBB6B84D4F5380 /* TextEditorContentView.swift in Sources */,
+				07EB0A6DFAC1E2202074CE87 /* TextSyncMessage.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C57BEA44E64C74024C159040 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E920EB67948A2FB5B31D466 /* ApiClient.swift in Sources */,
+				6DC41477EE75CC9F2159FAFF /* ApiResponse.swift in Sources */,
+				AF61CD46C6387EBA0F0476B4 /* AuthManager.swift in Sources */,
+				8F74901EAB9C50F2331666D4 /* ContentView.swift in Sources */,
+				E8F108F24FB4C002A3F22A4A /* FileCacheManager.swift in Sources */,
+				841BA38E7719CB47B0265161 /* FileClient.swift in Sources */,
+				BADDB9811181E37077C0B6B1 /* FileGridView.swift in Sources */,
+				06B08B1A8A493E32AC5544FC /* FileItemView.swift in Sources */,
+				3142DAEBF4DFF1C2F976054F /* FileModels.swift in Sources */,
+				795BDA2E8E146FC6E387D39A /* LoginModels.swift in Sources */,
+				42FD01C72D1F8B0B1DAF0FA8 /* LoginView.swift in Sources */,
+				58B97EA15D9C53C60778F290 /* LoginViewModel.swift in Sources */,
+				B3B9751C8C207B660AD72B52 /* PadViewModel.swift in Sources */,
+				CBDE665A09E21EEA6B1E0BF7 /* SignalRClient.swift in Sources */,
+				803FCBD71C16FD54DF2C397E /* SyncPadApp.swift in Sources */,
+				01CF08CBC9DD2185D7E7C2AE /* TextEditorContentView.swift in Sources */,
+				5219F1B39F4019C4CCA6AA9B /* TextSyncMessage.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		09F75483FCD6E3A69B15A5F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		37BB7EBCAF4C2408ADD8A6BC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		3D9CF3C39245358E9EB29E4C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = macOS/SyncPad.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SyncPad;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 ORIGAMI. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.origami7023.syncpad;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		4F382A958885CAAF135AC453 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iOS/SyncPad.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SyncPad;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.origami7023.syncpad;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A8524AFCBF229153653D6031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = macOS/SyncPad.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SyncPad;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2024 ORIGAMI. All rights reserved.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.origami7023.syncpad;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		B174C6BA1B8FAA60315DF41B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iOS/SyncPad.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = SyncPad;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.origami7023.syncpad;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3F423205CC1A604F6266A278 /* Build configuration list for PBXNativeTarget "SyncPad-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A8524AFCBF229153653D6031 /* Debug */,
+				3D9CF3C39245358E9EB29E4C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5686FFF85AE4D4F4AE982B13 /* Build configuration list for PBXProject "SyncPad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				37BB7EBCAF4C2408ADD8A6BC /* Debug */,
+				09F75483FCD6E3A69B15A5F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6F3194CEC38A9F6AABA53089 /* Build configuration list for PBXNativeTarget "SyncPad-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B174C6BA1B8FAA60315DF41B /* Debug */,
+				4F382A958885CAAF135AC453 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 47EB3429AB14C46C9507841A /* Project object */;
+}

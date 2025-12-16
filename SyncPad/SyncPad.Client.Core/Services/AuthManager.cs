@@ -10,12 +10,8 @@ public class AuthManager : IAuthManager
     private readonly IApiClient _apiClient;
     private readonly ITokenStorage _tokenStorage;
 
-    // 服务器地址（根据编译配置切换）
-#if DEBUG
-    private readonly string _baseUrl = "https://localhost:7167";  // 本地调试（使用 HTTPS）
-#else
-    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";  // 生产环境
-#endif
+    // 服务器地址（Mac Catalyst 始终使用生产环境）
+    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);
     public string? Username { get; private set; }
