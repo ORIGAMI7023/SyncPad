@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -41,11 +41,14 @@
 		F857EC9047EC70FFABD928E3 /* FileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */; };
 		FC1451D1422BBC5C54408440 /* FileCacheManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */; };
 		FC7399A5DE6CAF74A9AA8A75 /* LoginViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1DE9EC00A5A6B0B1552C368 /* LoginViewModel.swift */; };
+		15FC47782EF6A31100C5CA4B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 15FC47772EF6A31100C5CA4A /* Assets.xcassets */; };
+		15FC47792EF6A31100C5CA4C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 15FC47772EF6A31100C5CA4A /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		126E92C9A5F1D29D77368B7F /* SyncPad-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SyncPad-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		13C85D5479E36DBE02777889 /* SyncPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPadApp.swift; sourceTree = "<group>"; };
+		15FC47772EF6A31100C5CA4A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 		17003F9D5134AA8A17A9631D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		238EA98ADA4DBD165862C1CF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		240C3E34019E54A98AAB8362 /* SyncPadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPadApp.swift; sourceTree = "<group>"; };
@@ -113,6 +116,7 @@
 		7B1A4CAABDBCB9218E00EF01 = {
 			isa = PBXGroup;
 			children = (
+				15FC47772EF6A31100C5CA4A /* Assets.xcassets */,
 				ED96A61F846848B64DC5CC60 /* iOS */,
 				8E1A069043D93F4FC8DF0CAC /* macOS */,
 				C9CA056F0C9135B040ECC139 /* Shared */,
@@ -171,6 +175,7 @@
 			buildConfigurationList = 6F3194CEC38A9F6AABA53089 /* Build configuration list for PBXNativeTarget "SyncPad-iOS" */;
 			buildPhases = (
 				C57BEA44E64C74024C159040 /* Sources */,
+				15FC477A2EF6A31100C5CA4D /* Resources */,
 			);
 			buildRules = (
 			);
@@ -188,6 +193,7 @@
 			buildConfigurationList = 3F423205CC1A604F6266A278 /* Build configuration list for PBXNativeTarget "SyncPad-macOS" */;
 			buildPhases = (
 				08C4A9485B1387F49DD4B6E2 /* Sources */,
+				15FC477B2EF6A31100C5CA4E /* Resources */,
 			);
 			buildRules = (
 			);
@@ -201,6 +207,25 @@
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXResourcesBuildPhase section */
+		15FC477A2EF6A31100C5CA4D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15FC47782EF6A31100C5CA4B /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		15FC477B2EF6A31100C5CA4E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15FC47792EF6A31100C5CA4C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXProject section */
 		47EB3429AB14C46C9507841A /* Project object */ = {
@@ -229,7 +254,6 @@
 			);
 			mainGroup = 7B1A4CAABDBCB9218E00EF01;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
