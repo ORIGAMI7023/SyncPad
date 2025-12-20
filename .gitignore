@@ -58,6 +58,11 @@ secrets.json
 # macOS
 .DS_Store
 
+# Xcode user-specific files
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+
 # Windows
 Thumbs.db
 ehthumbs.db
