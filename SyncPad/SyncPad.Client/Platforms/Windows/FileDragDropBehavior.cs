@@ -1,3 +1,5 @@
+using SyncPad.Client.ViewModels;
+
 namespace SyncPad.Client.Behaviors;
 
 /// <summary>
