@@ -17,6 +17,7 @@ public partial class PadPage : ContentPage
     private int _lastSelectedIndex = -1;
     private bool _isCtrlPressed;
     private bool _isShiftPressed;
+    private bool _isEditorFocused;
 
     public PadPage(PadViewModel viewModel)
     {
@@ -363,12 +364,17 @@ public partial class PadPage : ContentPage
         }
         else if (e.Key == Windows.System.VirtualKey.A && _isCtrlPressed)
         {
-            foreach (var file in _viewModel.Files)
+            // 只在焦点不在 Editor 时全选文件
+            if (!_isEditorFocused)
             {
-                file.IsSelected = true;
+                foreach (var file in _viewModel.Files)
+                {
+                    file.IsSelected = true;
+                }
+                _viewModel.NotifySelectionChanged();
+                e.Handled = true;
             }
-            _viewModel.NotifySelectionChanged();
-            e.Handled = true;
+            // 否则让 Editor 处理 Ctrl+A（不设置 e.Handled）
         }
         else if (e.Key == Windows.System.VirtualKey.Delete)
         {
@@ -393,6 +399,16 @@ public partial class PadPage : ContentPage
         {
             _isShiftPressed = false;
         }
+    }
+
+    private void OnEditorFocused(object? sender, FocusEventArgs e)
+    {
+        _isEditorFocused = true;
+    }
+
+    private void OnEditorUnfocused(object? sender, FocusEventArgs e)
+    {
+        _isEditorFocused = false;
     }
 #endif
 

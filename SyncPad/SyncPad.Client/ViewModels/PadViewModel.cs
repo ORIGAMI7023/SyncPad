@@ -344,29 +344,39 @@ public class PadViewModel : BaseViewModel, IDisposable
                     "覆盖", "取消");
 
                 if (!overwrite) return;
-
-                using var stream = await fileResult.OpenReadAsync();
-                var response = await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType, overwrite: true);
-
-                if (!response.Success)
-                {
-                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
-                }
             }
-            else
-            {
-                using var stream = await fileResult.OpenReadAsync();
-                var response = await _fileClient.UploadFileAsync(fileResult.FileName, stream, fileResult.ContentType);
 
-                if (!response.Success)
+            // 读取文件到内存流，避免原始流被关闭
+            using var memoryStream = new MemoryStream();
+            using (var stream = await fileResult.OpenReadAsync())
+            {
+                if (stream == null || stream.Length == 0)
                 {
-                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", "无法读取文件", "确定");
+                    return;
                 }
+                await stream.CopyToAsync(memoryStream);
+            }
+
+            // 重置流位置
+            memoryStream.Position = 0;
+
+            var contentType = fileResult.ContentType ?? "application/octet-stream";
+            var response = await _fileClient.UploadFileAsync(
+                fileResult.FileName,
+                memoryStream,
+                contentType,
+                overwrite: true);
+
+            if (!response.Success)
+            {
+                await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"上传文件失败: {ex.Message}");
+            await Application.Current!.MainPage!.DisplayAlert("上传失败", ex.Message, "确定");
         }
     }
 
