@@ -30,6 +30,11 @@ public interface IFileClient
     Task<ApiResponse> DeleteFileAsync(int fileId);
 
     /// <summary>
+    /// 重命名文件
+    /// </summary>
+    Task<ApiResponse<FileItemDto>> RenameFileAsync(int fileId, string newFileName);
+
+    /// <summary>
     /// 下载文件到缓存（支持进度回调）
     /// </summary>
     /// <param name="fileId">文件 ID</param>

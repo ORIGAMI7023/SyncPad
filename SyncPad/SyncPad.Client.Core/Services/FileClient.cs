@@ -157,6 +157,22 @@ public class FileClient : IFileClient
         }
     }
 
+    public async Task<ApiResponse<FileItemDto>> RenameFileAsync(int fileId, string newFileName)
+    {
+        try
+        {
+            EnsureBaseAddress();
+            var request = new RenameFileRequest { NewFileName = newFileName };
+            var response = await _httpClient.PutAsJsonAsync($"api/files/{fileId}/rename", request);
+            var result = await response.Content.ReadFromJsonAsync<ApiResponse<FileItemDto>>();
+            return result ?? ApiResponse<FileItemDto>.Fail("服务器返回空响应");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<FileItemDto>.Fail($"重命名失败: {ex.Message}");
+        }
+    }
+
     public async Task<bool> DownloadFileToCacheAsync(int fileId, string fileName, string cachePath, Action<long, long>? progressCallback = null)
     {
         try

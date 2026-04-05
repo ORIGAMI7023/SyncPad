@@ -87,6 +87,9 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand BatchCopyCommand { get; }
     public ICommand BatchExportCommand { get; }
 
+    // 重命名命令
+    public ICommand RenameFileCommand { get; }
+
     // 属性变更通知辅助方法
     public void NotifySelectionChanged()
     {
@@ -145,6 +148,9 @@ public class PadViewModel : BaseViewModel, IDisposable
         ExportFileCommand = new Command<SelectableFileItem>(async f => await ExportFileAsync(f));
         BatchCopyCommand = new Command(async () => await BatchCopyAsync(), () => HasSelectedFiles);
         BatchExportCommand = new Command(async () => await BatchExportAsync(), () => HasSelectedFiles);
+
+        // 重命名命令
+        RenameFileCommand = new Command<(SelectableFileItem file, string newName)>(async p => await RenameFileAsync(p.file, p.newName));
 
         // 监听连接状态变化
         _textHubClient.ConnectionStateChanged += OnConnectionStateChanged;
@@ -760,6 +766,56 @@ public class PadViewModel : BaseViewModel, IDisposable
     }
 
     #endregion
+
+    /// <summary>
+    /// 重命名文件
+    /// </summary>
+    public async Task RenameFileAsync(SelectableFileItem file, string newName)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(newName))
+            {
+                await Application.Current!.MainPage!.DisplayAlert("重命名失败", "文件名不能为空", "确定");
+                return;
+            }
+
+            if (newName == file.FileName)
+            {
+                return; // 文件名未改变，无需操作
+            }
+
+            // 保存旧文件名，用于更新缓存
+            string oldFileName = file.FileName;
+
+            var response = await _fileClient.RenameFileAsync(file.Id, newName);
+            if (response.Success)
+            {
+                // 如果文件已缓存，先更新缓存文件名
+                if (_cacheManager.IsCached(file.Id))
+                {
+                    var oldPath = _cacheManager.GetCachePath(file.Id, oldFileName);
+                    var newPath = _cacheManager.GetCachePath(file.Id, newName);
+                    if (File.Exists(oldPath))
+                    {
+                        File.Move(oldPath, newPath);
+                    }
+                }
+
+                // 更新本地文件项
+                file.File.FileName = newName;
+            }
+            else
+            {
+                await Application.Current!.MainPage!.DisplayAlert("重命名失败", response.ErrorMessage, "确定");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"重命名文件失败: {ex.Message}");
+            await Application.Current!.MainPage!.DisplayAlert("重命名失败", $"发生错误: {ex.Message}", "确定");
+        }
+    }
 
     public void Dispose()
     {

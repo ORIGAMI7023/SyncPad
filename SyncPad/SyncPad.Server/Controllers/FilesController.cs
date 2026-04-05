@@ -209,6 +209,38 @@ public class FilesController : ControllerBase
         return NotFound(ApiResponse.Fail("文件不存在"));
     }
 
+    /// <summary>
+    /// 重命名文件
+    /// </summary>
+    [HttpPut("{fileId}/rename")]
+    public async Task<ActionResult<ApiResponse<FileItemDto>>> RenameFile(int fileId, [FromBody] RenameFileRequest request)
+    {
+        var userId = GetUserId();
+        if (userId == null)
+            return Unauthorized(ApiResponse<FileItemDto>.Fail("未授权"));
+
+        if (string.IsNullOrWhiteSpace(request.NewFileName))
+            BadRequest(ApiResponse<FileItemDto>.Fail("文件名不能为空"));
+
+        var result = await _fileService.RenameFileAsync(userId.Value, fileId, request.NewFileName);
+
+        if (result != null)
+        {
+            // 通知同账号其他客户端
+            await _hubContext.Clients.Group($"user_{userId}")
+                .SendAsync("ReceiveFileUpdate", new FileSyncMessage
+                {
+                    Action = "renamed",
+                    FileId = fileId,
+                    NewFileName = request.NewFileName
+                });
+
+            return Ok(ApiResponse<FileItemDto>.Ok(result));
+        }
+
+        return NotFound(ApiResponse<FileItemDto>.Fail("文件不存在"));
+    }
+
     private int? GetUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);

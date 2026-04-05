@@ -285,6 +285,18 @@ public partial class PadPage : ContentPage
         }
     }
 
+    private async void OnContextMenuRename(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            string newName = await DisplayPromptAsync("重命名文件", "请输入新的文件名：", initialValue: file.FileName, accept: "重命名", cancel: "取消");
+            if (!string.IsNullOrWhiteSpace(newName))
+            {
+                _viewModel.RenameFileCommand.Execute((file, newName));
+            }
+        }
+    }
+
     private void OnContextMenuDelete(object? sender, EventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
