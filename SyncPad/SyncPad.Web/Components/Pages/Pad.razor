@@ -325,14 +325,12 @@
         padding: 10px;
         position: relative;
         min-height: 0;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 8px;
-        align-content: start;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
 
     .empty-state {
-        grid-column: 1 / -1;
         text-align: center;
         padding: 40px 20px;
         color: #999;
@@ -816,27 +814,44 @@
         try
         {
             // 检查同名文件
-            if (await FileClient.FileExistsAsync(file.Name))
-            {
-                // Web 环境下使用 JS Interop 来显示确认对话框
-                // 这里简化处理，直接覆盖
-                using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
-                await FileClient.UploadFileAsync(file.Name, stream, file.ContentType, overwrite: true);
-            }
-            else
-            {
-                using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
-                var response = await FileClient.UploadFileAsync(file.Name, stream, file.ContentType);
+            bool exists = await FileClient.FileExistsAsync(file.Name);
+            bool shouldOverwrite = exists;
 
-                if (!response.Success)
+            // 如果文件存在，询问用户是否覆盖
+            if (exists)
+            {
+                bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+                    $"文件 \"{file.Name}\" 已存在，是否覆盖？");
+                if (!confirmed)
                 {
-                    Console.WriteLine($"上传失败: {response.ErrorMessage}");
+                    return;
                 }
+                shouldOverwrite = true;
+            }
+
+            // 读取文件到内存流
+            using var memoryStream = new MemoryStream();
+            using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            // 上传文件
+            var response = await FileClient.UploadFileAsync(
+                file.Name,
+                memoryStream,
+                file.ContentType,
+                shouldOverwrite);
+
+            if (!response.Success)
+            {
+                // 显示错误信息
+                await JSRuntime.InvokeVoidAsync("alert", $"上传失败: {response.ErrorMessage}");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"上传文件失败: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"上传文件失败: {ex.Message}");
         }
     }
 
