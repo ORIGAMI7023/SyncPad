@@ -298,6 +298,14 @@ public partial class PadPage : ContentPage
         }
     }
 
+    private void OnContextMenuDownload(object? sender, EventArgs e)
+    {
+        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        {
+            _viewModel.DownloadFileCommand.Execute(file);
+        }
+    }
+
     private void OnContextMenuDelete(object? sender, EventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)

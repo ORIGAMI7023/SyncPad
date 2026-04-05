@@ -101,6 +101,7 @@
             {
                 <div class="context-menu" style="left: @(_menuX)px; top: @(_menuY)px;" @onclick:stopPropagation="true">
                     <div class="context-menu-item" @onclick="() => DownloadFile(_menuFile)">下载</div>
+                    <div class="context-menu-item" @onclick="() => RenameFile(_menuFile)">重命名</div>
                     <div class="context-menu-separator"></div>
                     <div class="context-menu-item context-menu-danger" @onclick="() => DeleteFileFromMenu(_menuFile)">删除</div>
                 </div>
@@ -112,8 +113,8 @@
         {
             <div class="batch-toolbar">
                 <span class="batch-info">已选择 @SelectedFilesCount 个文件</span>
-                <button class="btn-success btn-sm" @onclick="BatchDownload">批量下载</button>
-                <button class="btn-danger btn-sm" @onclick="BatchDelete">批量删除</button>
+                <button class="btn-success btn-sm" @onclick="BatchDownload">下载</button>
+                <button class="btn-danger btn-sm" @onclick="BatchDelete">删除</button>
                 <button class="btn-secondary btn-sm" @onclick="ClearSelection">取消</button>
             </div>
         }
@@ -995,6 +996,38 @@
     {
         _menuVisible = false;
         await DeleteFile(file);
+        StateHasChanged();
+    }
+
+    // 从操作菜单重命名文件
+    private async Task RenameFile(SelectableFileItemWeb file)
+    {
+        _menuVisible = false;
+
+        // 使用 JS Interop 显示重命名对话框
+        var newName = await JSRuntime.InvokeAsync<string>("prompt",
+            $"请输入新的文件名：", file.File.FileName);
+
+        if (!string.IsNullOrWhiteSpace(newName) && newName != file.File.FileName)
+        {
+            try
+            {
+                var response = await FileClient.RenameFileAsync(file.File.Id, newName);
+                if (!response.Success)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"重命名失败: {response.ErrorMessage}");
+                }
+                else
+                {
+                    await RefreshFiles();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"重命名失败: {ex.Message}");
+            }
+        }
+
         StateHasChanged();
     }
 

@@ -78,6 +78,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     public ICommand SelectFileCommand { get; }
     public ICommand OpenFileCommand { get; }
     public ICommand DeleteFileCommand { get; }
+    public ICommand DownloadFileCommand { get; }
     public ICommand ToggleFileSelectionCommand { get; }
     public ICommand BatchDownloadCommand { get; }
     public ICommand BatchDeleteCommand { get; }
@@ -140,6 +141,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         SelectFileCommand = new Command(async () => await SelectFileAsync());
         OpenFileCommand = new Command<SelectableFileItem>(async f => await OpenFileAsync(f));
         DeleteFileCommand = new Command<SelectableFileItem>(async f => await DeleteFileAsync(f));
+        DownloadFileCommand = new Command<SelectableFileItem>(async f => await DownloadToCacheAsync(f));
         ToggleFileSelectionCommand = new Command<SelectableFileItem>(ToggleFileSelection);
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
         BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
@@ -420,9 +422,24 @@ public class PadViewModel : BaseViewModel, IDisposable
         {
             var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
 
+            // 验证缓存路径
+            if (string.IsNullOrEmpty(cachePath))
+            {
+                await Application.Current!.MainPage!.DisplayAlert("打开失败", "无法确定文件缓存路径", "确定");
+                return;
+            }
+
             // 检查是否已缓存
             if (_cacheManager.IsCached(file.Id))
             {
+                // 验证文件是否存在
+                if (!File.Exists(cachePath))
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("打开失败", "缓存文件不存在，请重新下载", "确定");
+                    _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
+                    return;
+                }
+
                 await Launcher.Default.OpenAsync(new OpenFileRequest
                 {
                     File = new ReadOnlyFile(cachePath)
@@ -441,6 +458,13 @@ public class PadViewModel : BaseViewModel, IDisposable
             {
                 _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
 
+                // 验证下载的文件
+                if (!File.Exists(cachePath))
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("打开失败", "文件下载后无法找到", "确定");
+                    return;
+                }
+
                 await Launcher.Default.OpenAsync(new OpenFileRequest
                 {
                     File = new ReadOnlyFile(cachePath)
@@ -449,13 +473,13 @@ public class PadViewModel : BaseViewModel, IDisposable
             else
             {
                 _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-                await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件", "确定");
+                await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件，请检查网络连接", "确定");
             }
         }
         catch (Exception ex)
         {
             _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-            System.Diagnostics.Debug.WriteLine($"打开文件失败: {ex.Message}");
+            await Application.Current!.MainPage!.DisplayAlert("打开失败", $"错误：{ex.Message}", "确定");
         }
     }
 
