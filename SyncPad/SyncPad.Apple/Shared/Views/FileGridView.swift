@@ -99,7 +99,7 @@ struct FileGridView: View {
     private func fileItem(_ file: FileItemDto) -> some View {
         FileItemView(
             file: file,
-            onTap: {
+            onDownload: {
                 Task {
                     if let url = await viewModel.downloadFile(file) {
                         #if os(macOS)
@@ -115,20 +115,6 @@ struct FileGridView: View {
                 showingDeleteAlert = true
             }
         )
-        #if os(macOS)
-        .onDrag {
-            // 拖出文件
-            if let cachedURL = viewModel.getCachedURL(file) {
-                return NSItemProvider(contentsOf: cachedURL) ?? NSItemProvider()
-            } else {
-                // 如果未缓存，先下载
-                Task {
-                    _ = await viewModel.downloadFile(file)
-                }
-                return NSItemProvider()
-            }
-        }
-        #endif
     }
 
     // MARK: - Drop Handler

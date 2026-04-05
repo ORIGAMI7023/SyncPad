@@ -3,11 +3,10 @@ import SwiftUI
 // MARK: - File Item View
 struct FileItemView: View {
     let file: FileItemDto
-    let onTap: () -> Void
+    let onDownload: () -> Void
     let onDelete: () -> Void
 
     @State private var isHovering: Bool = false
-    @ObservedObject private var cacheManager = FileCacheManager.shared
 
     var body: some View {
         VStack(spacing: 8) {
@@ -20,12 +19,6 @@ struct FileItemView: View {
                 fileIcon
                     .font(.system(size: 36))
                     .foregroundColor(iconColor)
-
-                // Download Progress
-                if cacheManager.getStatus(fileId: file.id) == .downloading {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                }
             }
 
             // File Name
@@ -35,8 +28,17 @@ struct FileItemView: View {
                 .multilineTextAlignment(.center)
                 .frame(width: 90)
 
-            // File Size
-            Text(formatFileSize(file.fileSize))
+            // File Size & Type
+            HStack(spacing: 4) {
+                Text(formatFileSize(file.fileSize))
+                Text("·")
+                Text(fileType.rawValue)
+            }
+            .font(.caption2)
+            .foregroundColor(.secondary)
+
+            // Upload Time
+            Text(formatDate(file.uploadedAt))
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
@@ -48,10 +50,15 @@ struct FileItemView: View {
         .onHover { hovering in
             isHovering = hovering
         }
-        .onTapGesture {
-            onTap()
-        }
         .contextMenu {
+            Button {
+                onDownload()
+            } label: {
+                Label("下载并打开", systemImage: "arrow.down.doc")
+            }
+
+            Divider()
+
             Button(role: .destructive) {
                 onDelete()
             } label: {
@@ -60,57 +67,73 @@ struct FileItemView: View {
         }
     }
 
+    // MARK: - File Type
+
+    private var fileType: FileType {
+        let ext = (file.fileName as NSString).pathExtension.lowercased()
+        switch ext {
+        case "jpg", "jpeg", "png", "gif", "bmp", "webp":
+            return .image
+        case "pdf":
+            return .pdf
+        case "doc", "docx":
+            return .document
+        case "xls", "xlsx":
+            return .spreadsheet
+        case "ppt", "pptx":
+            return .presentation
+        case "mp3", "wav", "m4a":
+            return .audio
+        case "mp4", "mov", "avi":
+            return .video
+        case "zip", "rar", "7z":
+            return .archive
+        case "txt":
+            return .text
+        default:
+            return .other
+        }
+    }
+
     // MARK: - File Icon
 
     private var fileIcon: Image {
-        let ext = (file.fileName as NSString).pathExtension.lowercased()
-
-        switch ext {
-        case "jpg", "jpeg", "png", "gif", "bmp", "webp":
+        switch fileType {
+        case .image:
             return Image(systemName: "photo")
-        case "pdf":
+        case .pdf:
             return Image(systemName: "doc.richtext")
-        case "doc", "docx":
+        case .document:
             return Image(systemName: "doc.text")
-        case "xls", "xlsx":
+        case .spreadsheet:
             return Image(systemName: "tablecells")
-        case "ppt", "pptx":
+        case .presentation:
             return Image(systemName: "rectangle.on.rectangle")
-        case "mp3", "wav", "m4a":
+        case .audio:
             return Image(systemName: "music.note")
-        case "mp4", "mov", "avi":
+        case .video:
             return Image(systemName: "film")
-        case "zip", "rar", "7z":
+        case .archive:
             return Image(systemName: "doc.zipper")
-        case "txt":
+        case .text:
             return Image(systemName: "doc.plaintext")
-        default:
+        case .other:
             return Image(systemName: "doc")
         }
     }
 
     private var iconColor: Color {
-        let ext = (file.fileName as NSString).pathExtension.lowercased()
-
-        switch ext {
-        case "jpg", "jpeg", "png", "gif", "bmp", "webp":
-            return .orange
-        case "pdf":
-            return .red
-        case "doc", "docx":
-            return .blue
-        case "xls", "xlsx":
-            return .green
-        case "ppt", "pptx":
-            return .orange
-        case "mp3", "wav", "m4a":
-            return .pink
-        case "mp4", "mov", "avi":
-            return .purple
-        case "zip", "rar", "7z":
-            return .yellow
-        default:
-            return .gray
+        switch fileType {
+        case .image:    return .orange
+        case .pdf:      return .red
+        case .document: return .blue
+        case .spreadsheet: return .green
+        case .presentation: return .orange
+        case .audio:    return .pink
+        case .video:    return .purple
+        case .archive:  return .yellow
+        case .text:     return .gray
+        case .other:    return .gray
         }
     }
 
@@ -120,6 +143,12 @@ struct FileItemView: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: bytes)
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter.string(from: date)
     }
 }
 
@@ -131,11 +160,9 @@ struct FileItemView: View {
             fileSize: 1024 * 1024,
             mimeType: "application/pdf",
             uploadedAt: Date(),
-            expiresAt: Date().addingTimeInterval(86400 * 7),
-            positionX: 0,
-            positionY: 0
+            expiresAt: Date().addingTimeInterval(86400 * 7)
         ),
-        onTap: {},
+        onDownload: {},
         onDelete: {}
     )
 }

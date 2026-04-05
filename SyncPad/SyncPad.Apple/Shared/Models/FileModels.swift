@@ -8,8 +8,6 @@ struct FileItemDto: Codable, Identifiable {
     let mimeType: String?
     let uploadedAt: Date
     let expiresAt: Date
-    var positionX: Int
-    var positionY: Int
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -18,8 +16,6 @@ struct FileItemDto: Codable, Identifiable {
         case mimeType
         case uploadedAt
         case expiresAt
-        case positionX
-        case positionY
     }
 }
 
@@ -37,22 +33,28 @@ struct FileUploadResponse: Codable {
 
 // MARK: - File Sync Message (SignalR)
 struct FileSyncMessage: Codable {
-    let action: String  // "added", "deleted", "position_changed"
+    let action: String  // "added", "deleted"
     let file: FileItemDto?
     let fileId: Int?
 }
 
-// MARK: - File Position Update Request
-struct FilePositionUpdateRequest: Codable {
-    let fileId: Int
-    let positionX: Int
-    let positionY: Int
-}
-
 // MARK: - File Status
 enum FileStatus {
-    case remote      // 仅在服务器
-    case downloading // 下载中
-    case cached      // 已缓存
-    case error       // 出错
+    case remote  // 仅在服务器
+    case cached  // 已缓存
+    case error   // 出错
+}
+
+// MARK: - File Type Helper
+enum FileType: String {
+    case image = "图片"
+    case pdf = "PDF"
+    case document = "文档"
+    case spreadsheet = "表格"
+    case presentation = "演示"
+    case audio = "音频"
+    case video = "视频"
+    case archive = "压缩包"
+    case text = "文本"
+    case other = "其他"
 }

@@ -11,8 +11,6 @@ public class FileItemDto
     public string? MimeType { get; set; }
     public DateTime UploadedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
-    public int PositionX { get; set; } = 0;
-    public int PositionY { get; set; } = 0;
 }
 
 /// <summary>
@@ -38,17 +36,8 @@ public class FileUploadResponse
 /// </summary>
 public class FileSyncMessage
 {
-    public required string Action { get; set; } // "added", "deleted", "position_changed"
+    public required string Action { get; set; } // "added", "deleted"
     public FileItemDto? File { get; set; }
     public int? FileId { get; set; } // 删除时使用
 }
 
-/// <summary>
-/// 文件位置更新请求
-/// </summary>
-public class FilePositionUpdateRequest
-{
-    public int FileId { get; set; }
-    public int PositionX { get; set; }
-    public int PositionY { get; set; }
-}

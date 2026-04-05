@@ -93,15 +93,6 @@ class PadViewModel: ObservableObject {
                 }
             }
         }
-
-        signalR.onFilePositionChanged = { [weak self] fileId, posX, posY in
-            Task { @MainActor in
-                if let index = self?.files.firstIndex(where: { $0.id == fileId }) {
-                    self?.files[index].positionX = posX
-                    self?.files[index].positionY = posY
-                }
-            }
-        }
     }
 
     // MARK: - Connection
@@ -238,12 +229,6 @@ class PadViewModel: ObservableObject {
             return path
         }
         return nil
-    }
-
-    /// 更新文件位置
-    func updateFilePosition(_ file: FileItemDto, x: Int, y: Int) async {
-        guard isConnected else { return }
-        await signalR.updateFilePosition(fileId: file.id, positionX: x, positionY: y)
     }
 
     // MARK: - Helpers

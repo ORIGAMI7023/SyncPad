@@ -5,8 +5,6 @@ namespace SyncPad.Client.ViewModels;
 public class SelectableFileItem : BaseViewModel
 {
     private bool _isSelected;
-    private FileStatus _status = FileStatus.Remote;
-    private int _downloadProgress;
     private object? _nativeIcon; // 存储平台特定的图标对象
 
     public FileItemDto File { get; }
@@ -15,26 +13,6 @@ public class SelectableFileItem : BaseViewModel
     {
         get => _isSelected;
         set => SetProperty(ref _isSelected, value);
-    }
-
-    public FileStatus Status
-    {
-        get => _status;
-        set
-        {
-            if (SetProperty(ref _status, value))
-            {
-                OnPropertyChanged(nameof(StatusText));
-                OnPropertyChanged(nameof(IsPreloading));
-                OnPropertyChanged(nameof(IsCached));
-            }
-        }
-    }
-
-    public int DownloadProgress
-    {
-        get => _downloadProgress;
-        set => SetProperty(ref _downloadProgress, value);
     }
 
     /// <summary>
@@ -48,34 +26,17 @@ public class SelectableFileItem : BaseViewModel
 
     public bool HasNativeIcon => NativeIcon != null;
 
-    // UI 辅助属性
-    public string StatusText => Status switch
-    {
-        FileStatus.Remote => "云端",
-        FileStatus.PreloadPending => "队列中",
-        FileStatus.Preloading => $"预载中 {DownloadProgress}%",
-        FileStatus.Cached => "已缓存",
-        _ => "未知"
-    };
-
-    public bool IsPreloading => Status == FileStatus.Preloading;
-    public bool IsCached => Status == FileStatus.Cached;
-
     // 图标映射
     public string FileIcon => GetFileIcon(MimeType);
 
-    public string StatusBadge => Status switch
-    {
-        FileStatus.Remote => "☁️",
-        FileStatus.PreloadPending => "🕐",
-        FileStatus.Cached => "✓",
-        _ => ""
-    };
-
-    public bool ShowProgress => Status == FileStatus.Preloading;
-
     // 格式化文件大小
     public string FileSizeText => FormatFileSize(FileSize);
+
+    // 文件类型（可读名称）
+    public string FileType => GetFileType(MimeType, FileName);
+
+    // 格式化的上传时间
+    public string UploadedAtText => UploadedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     // 委托 FileItemDto 的属性
     public int Id => File.Id;
@@ -84,12 +45,44 @@ public class SelectableFileItem : BaseViewModel
     public string? MimeType => File.MimeType;
     public DateTime UploadedAt => File.UploadedAt;
     public DateTime ExpiresAt => File.ExpiresAt;
-    public int PositionX => File.PositionX;
-    public int PositionY => File.PositionY;
 
     public SelectableFileItem(FileItemDto file)
     {
         File = file;
+    }
+
+    private string GetFileType(string? mimeType, string fileName)
+    {
+        if (!string.IsNullOrEmpty(mimeType))
+        {
+            if (mimeType.StartsWith("image/")) return "图片";
+            if (mimeType.StartsWith("video/")) return "视频";
+            if (mimeType.StartsWith("audio/")) return "音频";
+            if (mimeType == "application/pdf") return "PDF";
+            if (mimeType.Contains("word") || mimeType.Contains("document")) return "文档";
+            if (mimeType.Contains("sheet") || mimeType.Contains("excel")) return "表格";
+            if (mimeType.Contains("presentation") || mimeType.Contains("powerpoint")) return "演示";
+            if (mimeType.StartsWith("text/")) return "文本";
+            if (mimeType.Contains("zip") || mimeType.Contains("rar") || mimeType.Contains("7z") || mimeType.Contains("tar") || mimeType.Contains("compressed")) return "压缩包";
+            if (mimeType.Contains("javascript") || mimeType.Contains("json") || mimeType.Contains("html") || mimeType.Contains("css") || mimeType.Contains("xml")) return "代码";
+        }
+
+        // 根据 extension 评估
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".webp" or ".svg" => "图片",
+            ".mp4" or ".avi" or ".mov" or ".mkv" or ".wmv" => "视频",
+            ".mp3" or ".wav" or ".flac" or ".aac" or ".ogg" => "音频",
+            ".pdf" => "PDF",
+            ".doc" or ".docx" => "文档",
+            ".xls" or ".xlsx" => "表格",
+            ".ppt" or ".pptx" => "演示",
+            ".txt" or ".md" or ".log" => "文本",
+            ".zip" or ".rar" or ".7z" or ".tar" or ".gz" => "压缩包",
+            ".js" or ".ts" or ".py" or ".java" or ".cs" or ".cpp" or ".go" or ".rs" => "代码",
+            _ => "文件"
+        };
     }
 
     private string GetFileIcon(string? mimeType)

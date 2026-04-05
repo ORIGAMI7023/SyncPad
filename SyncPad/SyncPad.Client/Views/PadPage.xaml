@@ -10,10 +10,8 @@
 
     <!-- 桌面端：侧边栏布局 | 移动端：标签页切换 -->
     <Grid Padding="0">
-        <!-- 使用 OnIdiom 实现响应式布局 -->
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <!-- 右侧列：文件区域 -->
             <ColumnDefinition>
                 <ColumnDefinition.Width>
                     <OnIdiom x:TypeArguments="GridLength">
@@ -44,7 +42,6 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 用户信息 -->
                 <Label Grid.Column="0" VerticalOptions="Center">
                     <Label.FormattedText>
                         <FormattedString>
@@ -54,7 +51,6 @@
                     </Label.FormattedText>
                 </Label>
 
-                <!-- 刷新按钮 -->
                 <Button Grid.Column="1"
                         Text="刷新"
                         Command="{Binding RefreshCommand}"
@@ -64,7 +60,6 @@
                         CornerRadius="4"
                         Padding="10,5"/>
 
-                <!-- 登出按钮 -->
                 <Button Grid.Column="2"
                         Text="登出"
                         Command="{Binding LogoutCommand}"
@@ -100,7 +95,6 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- 连接状态指示器 -->
                 <Ellipse Grid.Column="0"
                          WidthRequest="12"
                          HeightRequest="12"
@@ -108,7 +102,6 @@
                          VerticalOptions="Center"
                          Margin="0,0,5,0"/>
 
-                <!-- 连接状态文本 -->
                 <Label Grid.Column="1"
                        Text="{Binding ConnectionStatus}"
                        VerticalOptions="Center"
@@ -161,14 +154,12 @@
                         Padding="10,5"/>
             </Grid>
 
-            <!-- 文件网格（自由定位布局） -->
+            <!-- 文件网格区域 -->
             <Grid Grid.Row="1" x:Name="FileAreaGrid">
                 <Grid.GestureRecognizers>
-                    <!-- 外层 Grid 的拖放支持（用于空状态） -->
                     <DropGestureRecognizer AllowDrop="True"
                                           DragOver="OnFileDragOver"
                                           Drop="OnFileDrop"/>
-                    <!-- 点击空白处取消选择 -->
                     <TapGestureRecognizer Tapped="OnFileAreaTapped"/>
                 </Grid.GestureRecognizers>
 
@@ -185,16 +176,20 @@
                            Margin="0,8,0,0"/>
                 </StackLayout>
 
-                <!-- 滚动容器 -->
-                <ScrollView IsVisible="{Binding HasFiles}" Orientation="Vertical">
-                    <!-- 文件自由网格 -->
-                    <controls:FileGridView ItemsSource="{Binding Files}"
-                                          x:Name="FileGridView">
-                        <!-- 移除 DropGestureRecognizer，使用 Windows 原生拖放处理 -->
+                <!-- 文件列表（CollectionView 替代 FileGridView） -->
+                <CollectionView ItemsSource="{Binding Files}"
+                                SelectionMode="None"
+                                IsVisible="{Binding HasFiles}"
+                                x:Name="FileCollectionView">
+                    <CollectionView.ItemsLayout>
+                        <GridItemsLayout Orientation="Vertical"
+                                        Span="4"
+                                        HorizontalItemSpacing="2"
+                                        VerticalItemSpacing="2"/>
+                    </CollectionView.ItemsLayout>
 
-                    <controls:FileGridView.ItemTemplate>
+                    <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <!-- 文件项容器 -->
                             <Frame Padding="6"
                                    CornerRadius="4"
                                    HasShadow="False"
@@ -203,9 +198,6 @@
                                 <Frame.BackgroundColor>
                                     <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                 </Frame.BackgroundColor>
-                                <Frame.Behaviors>
-                                    <behaviors:FileDragDropBehavior />
-                                </Frame.Behaviors>
                                 <!-- 右键菜单 -->
                                 <FlyoutBase.ContextFlyout>
                                     <MenuFlyout>
@@ -213,17 +205,16 @@
                                         <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                     </MenuFlyout>
                                 </FlyoutBase.ContextFlyout>
-                                <!-- Windows 平台使用原生拖放，移除 MAUI GestureRecognizer -->
 
-                                <Grid RowSpacing="4">
+                                <Grid RowSpacing="2">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="48"/>
                                         <RowDefinition Height="34"/>
                                         <RowDefinition Height="16"/>
-                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="16"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- 文件图标和状态角标 -->
+                                    <!-- 文件图标 -->
                                     <Grid Grid.Row="0">
                                         <!-- Windows 原生文件图标（优先显示） -->
                                         <Image Source="{Binding NativeIcon}"
@@ -239,27 +230,6 @@
                                                HorizontalOptions="Center"
                                                VerticalOptions="Center"
                                                IsVisible="{Binding HasNativeIcon, Converter={StaticResource InverseBoolConverter}}"/>
-
-                                        <!-- 状态角标 -->
-                                        <Label Text="{Binding StatusBadge}"
-                                               FontSize="12"
-                                               HorizontalOptions="End"
-                                               VerticalOptions="Start"
-                                               Margin="0,-4,-4,0"
-                                               IsVisible="{Binding StatusBadge, Converter={StaticResource StringNotEmptyConverter}}"/>
-
-                                        <!-- 复选框（选择模式） -->
-                                        <CheckBox IsChecked="{Binding IsSelected}"
-                                                 HorizontalOptions="Start"
-                                                 VerticalOptions="Start"
-                                                 Margin="-8,-8,0,0"
-                                                 Scale="0.8"
-                                                 IsVisible="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=IsSelectionMode}">
-                                            <CheckBox.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=ToggleFileSelectionCommand}"
-                                                                    CommandParameter="{Binding .}"/>
-                                            </CheckBox.GestureRecognizers>
-                                        </CheckBox>
                                     </Grid>
 
                                     <!-- 文件名 -->
@@ -271,7 +241,7 @@
                                            MaxLines="2"
                                            HorizontalTextAlignment="Center"/>
 
-                                    <!-- 文件大小和状态 -->
+                                    <!-- 文件大小和类型 -->
                                     <Label Grid.Row="2"
                                            FontSize="10"
                                            TextColor="Gray"
@@ -280,17 +250,17 @@
                                             <FormattedString>
                                                 <Span Text="{Binding FileSizeText}"/>
                                                 <Span Text=" · "/>
-                                                <Span Text="{Binding StatusText}"/>
+                                                <Span Text="{Binding FileType}"/>
                                             </FormattedString>
                                         </Label.FormattedText>
                                     </Label>
 
-                                    <!-- 进度条（预载中时显示） -->
-                                    <ProgressBar Grid.Row="3"
-                                                Progress="{Binding DownloadProgress, Converter={StaticResource PercentToProgressConverter}}"
-                                                ProgressColor="#007BFF"
-                                                IsVisible="{Binding ShowProgress}"
-                                                HeightRequest="4"/>
+                                    <!-- 上传时间 -->
+                                    <Label Grid.Row="3"
+                                           Text="{Binding UploadedAtText}"
+                                           FontSize="9"
+                                           TextColor="LightGray"
+                                           HorizontalTextAlignment="Center"/>
 
                                     <!-- 点击手势 -->
                                     <Grid.GestureRecognizers>
@@ -302,9 +272,8 @@
                                 </Grid>
                             </Frame>
                         </DataTemplate>
-                        </controls:FileGridView.ItemTemplate>
-                    </controls:FileGridView>
-                </ScrollView>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
             </Grid>
 
             <!-- 批量操作工具栏 -->
@@ -558,9 +527,6 @@
                                             <Frame.BackgroundColor>
                                                 <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                             </Frame.BackgroundColor>
-                                            <Frame.Behaviors>
-                                                <behaviors:FileDragDropBehavior />
-                                            </Frame.Behaviors>
                                             <!-- 右键菜单（移动端可能不显示，但保持一致） -->
                                             <FlyoutBase.ContextFlyout>
                                                 <MenuFlyout>
@@ -569,42 +535,20 @@
                                                 </MenuFlyout>
                                             </FlyoutBase.ContextFlyout>
 
-                                            <Grid RowSpacing="4">
+                                            <Grid RowSpacing="2">
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="48"/>
                                                     <RowDefinition Height="34"/>
                                                     <RowDefinition Height="16"/>
-                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="16"/>
                                                 </Grid.RowDefinitions>
 
-                                                <!-- 文件图标和状态角标 -->
+                                                <!-- 文件图标 -->
                                                 <Grid Grid.Row="0">
-                                                    <!-- 文件图标 -->
                                                     <Label Text="{Binding FileIcon}"
                                                            FontSize="32"
                                                            HorizontalOptions="Center"
                                                            VerticalOptions="Center"/>
-
-                                                    <!-- 状态角标 -->
-                                                    <Label Text="{Binding StatusBadge}"
-                                                           FontSize="12"
-                                                           HorizontalOptions="End"
-                                                           VerticalOptions="Start"
-                                                           Margin="0,-4,-4,0"
-                                                           IsVisible="{Binding StatusBadge, Converter={StaticResource StringNotEmptyConverter}}"/>
-
-                                                    <!-- 复选框（选择模式） -->
-                                                    <CheckBox IsChecked="{Binding IsSelected}"
-                                                             HorizontalOptions="Start"
-                                                             VerticalOptions="Start"
-                                                             Margin="-8,-8,0,0"
-                                                             Scale="0.8"
-                                                             IsVisible="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=IsSelectionMode}">
-                                                        <CheckBox.GestureRecognizers>
-                                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=ToggleFileSelectionCommand}"
-                                                                                CommandParameter="{Binding .}"/>
-                                                        </CheckBox.GestureRecognizers>
-                                                    </CheckBox>
                                                 </Grid>
 
                                                 <!-- 文件名 -->
@@ -616,7 +560,7 @@
                                                        MaxLines="2"
                                                        HorizontalTextAlignment="Center"/>
 
-                                                <!-- 文件大小和状态 -->
+                                                <!-- 文件大小和类型 -->
                                                 <Label Grid.Row="2"
                                                        FontSize="10"
                                                        TextColor="Gray"
@@ -625,17 +569,17 @@
                                                         <FormattedString>
                                                             <Span Text="{Binding FileSizeText}"/>
                                                             <Span Text=" · "/>
-                                                            <Span Text="{Binding StatusText}"/>
+                                                            <Span Text="{Binding FileType}"/>
                                                         </FormattedString>
                                                     </Label.FormattedText>
                                                 </Label>
 
-                                                <!-- 进度条（预载中时显示） -->
-                                                <ProgressBar Grid.Row="3"
-                                                            Progress="{Binding DownloadProgress, Converter={StaticResource PercentToProgressConverter}}"
-                                                            ProgressColor="#007BFF"
-                                                            IsVisible="{Binding ShowProgress}"
-                                                            HeightRequest="4"/>
+                                                <!-- 上传时间 -->
+                                                <Label Grid.Row="3"
+                                                       Text="{Binding UploadedAtText}"
+                                                       FontSize="9"
+                                                       TextColor="LightGray"
+                                                       HorizontalTextAlignment="Center"/>
 
                                                 <!-- 点击手势 -->
                                                 <Grid.GestureRecognizers>

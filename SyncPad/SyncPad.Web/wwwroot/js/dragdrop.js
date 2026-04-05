@@ -20,11 +20,6 @@ window.DragDropInterop = {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // 获取拖放位置（相对于元素）
-                const rect = element.getBoundingClientRect();
-                const offsetX = e.clientX - rect.left;
-                const offsetY = e.clientY - rect.top;
-
                 // 获取文件信息并通知 Blazor
                 const fileInfos = [];
                 for (let i = 0; i < files.length; i++) {
@@ -40,7 +35,7 @@ window.DragDropInterop = {
                 window._droppedFiles = files;
 
                 try {
-                    await dotNetRef.invokeMethodAsync('OnFilesDropped', fileInfos, offsetX, offsetY);
+                    await dotNetRef.invokeMethodAsync('OnFilesDropped', fileInfos, 0, 0);
                 } catch (err) {
                     console.error('调用 OnFilesDropped 失败:', err);
                 }

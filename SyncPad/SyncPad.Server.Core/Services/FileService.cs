@@ -26,67 +26,9 @@ public class FileService : IFileService
 
     public async Task<List<FileItemDto>> GetFilesAsync(int userId)
     {
-        var files = await _context.FileItems
+        return await _context.FileItems
             .Where(f => f.UserId == userId && !f.IsDeleted)
-            .ToListAsync();
-
-        // 检查并修复没有有效位置的文件
-        bool needsSave = false;
-        var occupiedPositions = new HashSet<(int, int)>();
-
-        // 先收集所有有效位置
-        foreach (var file in files)
-        {
-            if (file.PositionX >= 0 && file.PositionY >= 0)
-            {
-                occupiedPositions.Add((file.PositionX, file.PositionY));
-            }
-        }
-
-        // 为没有有效位置的文件分配位置
-        const int maxColumns = 4;
-        foreach (var file in files)
-        {
-            if (file.PositionX < 0 || file.PositionY < 0)
-            {
-                // 查找下一个可用位置
-                (int x, int y) = (0, 0);
-                bool found = false;
-
-                for (int row = 0; row < 1000 && !found; row++)
-                {
-                    for (int col = 0; col < maxColumns; col++)
-                    {
-                        if (!occupiedPositions.Contains((col, row)))
-                        {
-                            x = col;
-                            y = row;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                file.PositionX = x;
-                file.PositionY = y;
-                occupiedPositions.Add((x, y));
-                needsSave = true;
-
-                System.Diagnostics.Debug.WriteLine($"GetFilesAsync: 为文件 {file.FileName} 分配位置 ({x},{y})");
-            }
-        }
-
-        // 保存位置更新
-        if (needsSave)
-        {
-            await _context.SaveChangesAsync();
-            System.Diagnostics.Debug.WriteLine($"GetFilesAsync: 已保存 {files.Count(f => f.PositionX >= 0 && f.PositionY >= 0)} 个文件的位置");
-        }
-
-        // 返回排序后的文件列表
-        return files
-            .OrderBy(f => f.PositionY)
-            .ThenBy(f => f.PositionX)
+            .OrderBy(f => f.UploadedAt).ThenBy(f => f.Id)
             .Select(f => new FileItemDto
             {
                 Id = f.Id,
@@ -94,11 +36,9 @@ public class FileService : IFileService
                 FileSize = f.FileSize,
                 MimeType = f.MimeType,
                 UploadedAt = f.UploadedAt,
-                ExpiresAt = f.ExpiresAt,
-                PositionX = f.PositionX,
-                PositionY = f.PositionY
+                ExpiresAt = f.ExpiresAt
             })
-            .ToList();
+            .ToListAsync();
     }
 
     public async Task<bool> FileExistsAsync(int userId, string fileName)
@@ -196,9 +136,6 @@ public class FileService : IFileService
             await DeleteFileInternalAsync(existingFile);
         }
 
-        // 获取下一个可用位置（网格坐标）
-        var (posX, posY) = await GetNextAvailablePositionAsync(userId);
-
         // 创建 FileItem 记录
         var now = DateTime.UtcNow;
         var fileItem = new FileItem
@@ -210,9 +147,7 @@ public class FileService : IFileService
             MimeType = mimeType,
             UploadedAt = now,
             ExpiresAt = now.Add(_defaultTtl),
-            IsDeleted = false,
-            PositionX = posX,
-            PositionY = posY
+            IsDeleted = false
         };
 
         _context.FileItems.Add(fileItem);
@@ -228,9 +163,7 @@ public class FileService : IFileService
                 FileSize = fileItem.FileSize,
                 MimeType = fileItem.MimeType,
                 UploadedAt = fileItem.UploadedAt,
-                ExpiresAt = fileItem.ExpiresAt,
-                PositionX = fileItem.PositionX,
-                PositionY = fileItem.PositionY
+                ExpiresAt = fileItem.ExpiresAt
             }
         };
     }
@@ -340,56 +273,5 @@ public class FileService : IFileService
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(data);
         return Convert.ToHexString(hashBytes).ToLowerInvariant();
-    }
-
-    public async Task<bool> UpdateFilePositionAsync(int userId, int fileId, int positionX, int positionY)
-    {
-        var fileItem = await _context.FileItems
-            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
-
-        if (fileItem == null)
-        {
-            System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 文件未找到 fileId={fileId}, userId={userId}");
-            return false;
-        }
-
-        System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 文件={fileItem.FileName}, 当前位置=({fileItem.PositionX},{fileItem.PositionY}), 新位置=({positionX},{positionY})");
-
-        fileItem.PositionX = positionX;
-        fileItem.PositionY = positionY;
-
-        await _context.SaveChangesAsync();
-        System.Diagnostics.Debug.WriteLine($"UpdateFilePositionAsync: 更新完成");
-        return true;
-    }
-
-    public async Task<(int X, int Y)> GetNextAvailablePositionAsync(int userId)
-    {
-        const int maxColumns = 4; // 固定 4 列
-
-        // 获取用户所有文件的位置（包括已删除的，避免位置冲突）
-        var occupiedPositions = await _context.FileItems
-            .Where(f => f.UserId == userId && !f.IsDeleted)
-            .Select(f => new { f.PositionX, f.PositionY })
-            .ToListAsync();
-
-        var occupied = new HashSet<(int, int)>(
-            occupiedPositions.Select(p => (p.PositionX, p.PositionY))
-        );
-
-        // 左优先、上优先遍历查找第一个空位
-        for (int y = 0; y < 1000; y++) // 最多 1000 行
-        {
-            for (int x = 0; x < maxColumns; x++)
-            {
-                if (!occupied.Contains((x, y)))
-                {
-                    return (x, y);
-                }
-            }
-        }
-
-        // 如果没有空位（理论上不会发生），返回 (0, 0)
-        return (0, 0);
     }
 }

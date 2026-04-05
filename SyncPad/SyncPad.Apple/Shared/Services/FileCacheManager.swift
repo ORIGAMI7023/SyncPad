@@ -59,7 +59,6 @@ class FileCacheManager: ObservableObject {
         }
 
         // 开始下载
-        setStatus(fileId: file.id, status: .downloading)
         downloadProgress[file.id] = 0
 
         do {

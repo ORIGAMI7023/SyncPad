@@ -99,26 +99,6 @@ public class TextHub : Hub
         await Clients.Caller.SendAsync("ReceiveFileList", files);
     }
 
-    /// <summary>
-    /// 更新文件位置
-    /// </summary>
-    public async Task UpdateFilePosition(int fileId, int positionX, int positionY)
-    {
-        var userId = GetUserId();
-        if (userId == null)
-        {
-            throw new HubException("用户未认证或已被删除，请重新登录");
-        }
-
-        // 更新数据库
-        var success = await _fileService.UpdateFilePositionAsync(userId.Value, fileId, positionX, positionY);
-        if (success)
-        {
-            // 广播给同账号的其他客户端（排除发送者）
-            await Clients.OthersInGroup($"user_{userId}").SendAsync("ReceiveFilePositionChanged", fileId, positionX, positionY);
-        }
-    }
-
     private int? GetUserId()
     {
         var userIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier);

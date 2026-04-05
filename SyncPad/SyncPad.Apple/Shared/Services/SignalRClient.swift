@@ -13,7 +13,6 @@ class SignalRClient: NSObject, ObservableObject {
     var onTextUpdate: ((TextSyncMessage) -> Void)?
     var onFileUpdate: ((FileSyncMessage) -> Void)?
     var onFileList: (([FileItemDto]) -> Void)?
-    var onFilePositionChanged: ((Int, Int, Int) -> Void)?
     var onConnectionStateChanged: ((Bool) -> Void)?
 
     private var webSocket: URLSessionWebSocketTask?
@@ -306,14 +305,6 @@ class SignalRClient: NSObject, ObservableObject {
                 onFileList?(files)
             }
 
-        case "ReceiveFilePositionChanged":
-            if arguments.count >= 3,
-               let fileId = arguments[0] as? Int,
-               let posX = arguments[1] as? Int,
-               let posY = arguments[2] as? Int {
-                onFilePositionChanged?(fileId, posX, posY)
-            }
-
         default:
             print("Unknown SignalR target: \(target)")
         }
@@ -347,16 +338,6 @@ class SignalRClient: NSObject, ObservableObject {
             "type": 1,
             "target": "RequestFileList",
             "arguments": []
-        ]
-        await sendInvocation(message)
-    }
-
-    /// 更新文件位置
-    func updateFilePosition(fileId: Int, positionX: Int, positionY: Int) async {
-        let message: [String: Any] = [
-            "type": 1,
-            "target": "UpdateFilePosition",
-            "arguments": [fileId, positionX, positionY]
         ]
         await sendInvocation(message)
     }
