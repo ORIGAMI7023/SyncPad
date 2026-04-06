@@ -1,6 +1,7 @@
 @page "/pad"
 @using SyncPad.Client.Core.Services
 @using SyncPad.Shared.Models
+@using K4os.Hash.xxHash
 @inject IAuthManager AuthManager
 @inject IApiClient ApiClient
 @inject ITextHubClient TextHubClient
@@ -836,11 +837,20 @@
             await stream.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
 
+            // 计算文件 hash
+            var hash = ComputeFileHash(memoryStream.ToArray());
+            if (string.IsNullOrEmpty(hash))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "计算文件 hash 失败");
+                return;
+            }
+
             // 上传文件
             var response = await FileClient.UploadFileAsync(
                 file.Name,
                 memoryStream,
                 file.ContentType,
+                hash,
                 shouldOverwrite);
 
             if (!response.Success)
@@ -948,11 +958,21 @@
 
     // 显示右键菜单（通过 JS 互操作调用）
     [JSInvokable]
-    public void ShowContextMenuJS(int fileId, double clientX, double clientY)
+    public void ShowContextMenuJS(int fileId, double clientX, double clientY, bool ctrlKey = false)
     {
         var file = _files.FirstOrDefault(f => f.File.Id == fileId);
         if (file != null)
         {
+            // 设置选中状态
+            if (!ctrlKey)
+            {
+                foreach (var f in _files)
+                {
+                    f.IsSelected = false;
+                }
+            }
+            file.IsSelected = true;
+
             _menuFile = file;
             _menuX = (int)clientX;
             _menuY = (int)clientY;
@@ -1048,13 +1068,22 @@
                 {
                     // 将 base64 转换为字节数组
                     var bytes = Convert.FromBase64String(fileData.Data);
+
+                    // 计算文件 hash
+                    var hash = ComputeFileHash(bytes);
+                    if (string.IsNullOrEmpty(hash))
+                    {
+                        Console.WriteLine($"计算文件 {fileData.Name} 的 hash 失败");
+                        continue;
+                    }
+
                     using var stream = new MemoryStream(bytes);
 
                     // 检查是否存在同名文件
                     bool overwrite = await FileClient.FileExistsAsync(fileData.Name);
 
                     // 上传文件
-                    await FileClient.UploadFileAsync(fileData.Name, stream, fileData.Type, overwrite);
+                    await FileClient.UploadFileAsync(fileData.Name, stream, fileData.Type, hash, overwrite);
                 }
             }
             catch (Exception ex)
@@ -1207,4 +1236,47 @@
             return $"{len:0.#} {sizes[order]}";
         }
     }
+
+    /// <summary>
+    /// 计算文件的 XXHash64 值（16位十六进制字符串）
+    /// </summary>
+    private string? ComputeFileHash(Stream stream)
+    {
+        try
+        {
+            var originalPosition = stream.Position;
+            stream.Position = 0;
+
+            using var memoryStream = new MemoryStream();
+            stream.CopyTo(memoryStream);
+            var bytes = memoryStream.ToArray();
+
+            var hash = XXH64.DigestOf(bytes);
+            var result = hash.ToString("x16");
+
+            stream.Position = originalPosition;
+            return result;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 计算字节数组的 XXHash64 值（16位十六进制字符串）
+    /// </summary>
+    private string? ComputeFileHash(byte[] data)
+    {
+        try
+        {
+            var hash = XXH64.DigestOf(data);
+            return hash.ToString("x16");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}
 }

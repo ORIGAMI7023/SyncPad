@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="K4os.Hash.xxHash" Version="1.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SyncPad.Client.Core\SyncPad.Client.Core.csproj" />
   </ItemGroup>
 

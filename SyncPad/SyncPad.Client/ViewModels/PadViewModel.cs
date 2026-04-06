@@ -467,7 +467,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     /// <summary>
     /// 统一流程：下载到缓存 → 复制到 Downloads → 打开资源管理器定位
     /// </summary>
-    private async Task DownloadAndSaveAsync(SelectableFileItem file)
+    public async Task DownloadAndSaveAsync(SelectableFileItem file)
     {
         try
         {
@@ -510,7 +510,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     /// <summary>
     /// 打开文件：下载到缓存 → 复制到 Downloads → 用默认应用打开 → 定位到文件
     /// </summary>
-    private async Task OpenFileAsync(SelectableFileItem file)
+    public async Task OpenFileAsync(SelectableFileItem file)
     {
         try
         {

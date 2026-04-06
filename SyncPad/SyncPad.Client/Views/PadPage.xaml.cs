@@ -50,23 +50,13 @@ public partial class PadPage : ContentPage
 #if WINDOWS
     private void SetupWindowsDragDrop()
     {
-        // 为文件区域设置外部文件拖入支持
-        DragDropHandler.SetupDropTarget(
-            FileCollectionView,
-            onFilesDropped: async (files, x, y) =>
-            {
-                foreach (var file in files)
-                {
-                    await UploadStorageFileAsync(file);
-                }
-            }
-        );
-
-        // 为外层 Grid 设置拖放支持（处理空状态）
+        // 只为外层 Grid 设置拖放支持，避免重复触发
         DragDropHandler.SetupDropTarget(
             FileAreaGrid,
             onFilesDropped: async (files, x, y) =>
             {
+                System.Diagnostics.Debug.WriteLine($"[DragDrop] 检测到 {files.Count} 个文件拖入");
+
                 foreach (var file in files)
                 {
                     await UploadStorageFileAsync(file);
@@ -278,40 +268,120 @@ public partial class PadPage : ContentPage
 
     #region 右键菜单事件
 
-    private void OnContextMenuOpen(object? sender, EventArgs e)
+    private async void OnContextMenuOpen(object? sender, EventArgs e)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        try
         {
-            _viewModel.OpenFileCommand.Execute(file);
+            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 打开文件: {file.FileName}");
+
+                // 设置选中状态
+                SetFileSelected(file);
+                _viewModel.NotifySelectionChanged();
+
+                await _viewModel.OpenFileAsync(file);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ContextMenu] 打开文件失败: {ex.Message}");
         }
     }
 
     private async void OnContextMenuRename(object? sender, EventArgs e)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        try
         {
-            string newName = await DisplayPromptAsync("重命名文件", "请输入新的文件名：", initialValue: file.FileName, accept: "重命名", cancel: "取消");
-            if (!string.IsNullOrWhiteSpace(newName))
+            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
             {
-                _viewModel.RenameFileCommand.Execute((file, newName));
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 重命名文件: {file.FileName}");
+
+                // 设置选中状态
+                SetFileSelected(file);
+                _viewModel.NotifySelectionChanged();
+
+                string newName = await DisplayPromptAsync("重命名文件", "请输入新的文件名：", initialValue: file.FileName, accept: "重命名", cancel: "取消");
+                if (!string.IsNullOrWhiteSpace(newName))
+                {
+                    await _viewModel.RenameFileAsync(file, newName);
+                }
             }
         }
-    }
-
-    private void OnContextMenuDownload(object? sender, EventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        catch (Exception ex)
         {
-            _viewModel.DownloadFileCommand.Execute(file);
+            System.Diagnostics.Debug.WriteLine($"[ContextMenu] 重命名文件失败: {ex.Message}");
         }
     }
 
-    private void OnContextMenuDelete(object? sender, EventArgs e)
+    private async void OnContextMenuDownload(object? sender, EventArgs e)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+        try
         {
-            _viewModel.DeleteFileCommand.Execute(file);
+            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 下载文件: {file.FileName}");
+
+                // 设置选中状态
+                SetFileSelected(file);
+                _viewModel.NotifySelectionChanged();
+
+                await _viewModel.DownloadAndSaveAsync(file);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
+            }
         }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ContextMenu] 下载文件失败: {ex.Message}");
+        }
+    }
+
+    private async void OnContextMenuDelete(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 删除文件: {file.FileName}");
+
+                // 设置选中状态
+                SetFileSelected(file);
+                _viewModel.NotifySelectionChanged();
+
+                await _viewModel.DeleteFileAsync(file, showConfirmation: true);
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ContextMenu] 删除文件失败: {ex.Message}");
+        }
+    }
+
+    private void SetFileSelected(SelectableFileItem file)
+    {
+        var currentIndex = _viewModel.Files.IndexOf(file);
+        if (currentIndex < 0) return;
+
+        if (!_isCtrlPressed)
+        {
+            foreach (var f in _viewModel.Files)
+            {
+                f.IsSelected = false;
+            }
+        }
+        file.IsSelected = true;
+        _lastSelectedIndex = currentIndex;
     }
 
     #endregion
@@ -409,6 +479,8 @@ public partial class PadPage : ContentPage
         }
     }
 
+#endif
+
     private void OnEditorFocused(object? sender, FocusEventArgs e)
     {
         _isEditorFocused = true;
@@ -418,7 +490,6 @@ public partial class PadPage : ContentPage
     {
         _isEditorFocused = false;
     }
-#endif
 
     #endregion
 }

@@ -54,4 +54,9 @@ public interface IFileCacheManager
     /// 清理过期缓存（默认7天未访问）
     /// </summary>
     Task CleanupExpiredCacheAsync(int expirationDays = 7);
+
+    /// <summary>
+    /// 获取缓存目录路径
+    /// </summary>
+    string GetCacheDirectory();
 }

@@ -75,8 +75,8 @@ public class FileCacheManager : IFileCacheManager
     {
         try
         {
-            using var stream = File.OpenRead(filePath);
-            var hash = XXH64.DigestOf(stream);
+            var data = File.ReadAllBytes(filePath);
+            var hash = XXH64.DigestOf(data);
             return hash.ToString("x16");
         }
         catch

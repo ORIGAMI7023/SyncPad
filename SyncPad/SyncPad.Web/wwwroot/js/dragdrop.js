@@ -85,8 +85,8 @@ window.DragDropInterop = {
                 // 获取文件卡片的索引（通过 data-file-id 属性）
                 const fileId = parseInt(fileCard.getAttribute('data-file-id'));
                 if (!isNaN(fileId)) {
-                    // 通知 Blazor 显示菜单
-                    dotNetRef.invokeMethodAsync('ShowContextMenuJS', fileId, e.clientX, e.clientY);
+                    // 通知 Blazor 显示菜单，传递 CtrlKey 状态
+                    dotNetRef.invokeMethodAsync('ShowContextMenuJS', fileId, e.clientX, e.clientY, e.ctrlKey || e.metaKey);
                 }
             }
         });
