@@ -152,20 +152,13 @@ struct FileGridView: View {
     // MARK: - Open File
 
     private func openFile(_ file: FileItemDto) async {
-        // 检查文件是否已缓存
         let cacheManager = FileCacheManager.shared
-        if cacheManager.isCached(fileId: file.id) {
-            // 文件已缓存，直接打开
-            if let url = cacheManager.getCacheURL(fileId: file.id, fileName: file.fileName) {
-                #if os(macOS)
-                NSWorkspace.shared.open(url)
-                #else
-                // iOS: 使用 QuickLook 或其他方式打开
-                // TODO: 实现 iOS 打开逻辑
-                #endif
-            }
+        if cacheManager.isCached(fileId: file.id, fileName: file.fileName) {
+            let url = cacheManager.getCachePath(fileId: file.id, fileName: file.fileName)
+            #if os(macOS)
+            NSWorkspace.shared.open(url)
+            #endif
         } else {
-            // 文件未缓存，提示用户先下载
             #if os(macOS)
             let alert = NSAlert()
             alert.messageText = "文件未下载"
