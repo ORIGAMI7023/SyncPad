@@ -13,6 +13,105 @@ struct FileItemView: View {
     @State private var newFileName: String = ""
 
     var body: some View {
+        #if os(macOS)
+        macOSListItem
+        #else
+        iOSGridItem
+        #endif
+    }
+
+    // MARK: - macOS List Item
+
+    #if os(macOS)
+    private var macOSListItem: some View {
+        HStack(spacing: 12) {
+            // File Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 32, height: 32)
+
+                fileIcon
+                    .font(.system(size: 16))
+                    .foregroundColor(iconColor)
+            }
+
+            // File Name
+            Text(file.fileName)
+                .font(.body)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer()
+
+            // File Size & Type
+            HStack(spacing: 4) {
+                Text(formatFileSize(file.fileSize))
+                Text("·")
+                Text(fileType.rawValue)
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+
+            // Upload Time
+            Text(formatDate(file.uploadedAt))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovering ? Color.blue.opacity(0.1) : Color.clear)
+        )
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .contextMenu {
+            Button {
+                onOpen()
+            } label: {
+                Label("打开", systemImage: "doc.text")
+            }
+
+            Button {
+                onDownload()
+            } label: {
+                Label("下载", systemImage: "arrow.down.doc")
+            }
+
+            Button {
+                newFileName = file.fileName
+                showRenameDialog = true
+            } label: {
+                Label("重命名", systemImage: "pencil")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("删除", systemImage: "trash")
+            }
+        }
+        .alert("重命名文件", isPresented: $showRenameDialog) {
+            TextField("新文件名", text: $newFileName)
+            Button("取消", role: .cancel) {}
+            Button("确定") {
+                if !newFileName.isEmpty {
+                    onRename?(newFileName)
+                }
+            }
+        } message: {
+            Text("请输入新的文件名")
+        }
+    }
+    #endif
+
+    // MARK: - iOS Grid Item
+
+    private var iOSGridItem: some View {
         VStack(spacing: 8) {
             // File Icon
             ZStack {

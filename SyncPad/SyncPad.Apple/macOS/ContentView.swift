@@ -21,7 +21,7 @@ struct macOSContentView: View {
 
             // 右侧：文件区
             FileGridView(viewModel: viewModel, enableDragDrop: true)
-                .frame(minWidth: 250, idealWidth: 350, maxWidth: 500)
+                .frame(minWidth: 300, idealWidth: 450, maxWidth: 700)
         }
         .toolbar {
             ToolbarItem(placement: .automatic) {

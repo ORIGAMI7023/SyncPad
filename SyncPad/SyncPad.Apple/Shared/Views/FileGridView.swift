@@ -8,10 +8,6 @@ struct FileGridView: View {
     @State private var selectedFile: FileItemDto?
     @State private var showingDeleteAlert: Bool = false
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 100, maximum: 120), spacing: 16)
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -37,17 +33,19 @@ struct FileGridView: View {
 
             Divider()
 
-            // File Grid
+            // File List
             if viewModel.files.isEmpty {
                 emptyState
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
+                    LazyVStack(spacing: 0) {
                         ForEach(viewModel.files) { file in
                             fileItem(file)
+                            if file.id != viewModel.files.last?.id {
+                                Divider().padding(.leading, 44)
+                            }
                         }
                     }
-                    .padding()
                 }
             }
         }
