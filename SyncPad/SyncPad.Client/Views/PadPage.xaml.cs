@@ -185,6 +185,26 @@ public partial class PadPage : ContentPage
             var currentIndex = _viewModel.Files.IndexOf(item);
             if (currentIndex < 0) return;
 
+            // 检测右键点击（通过 Buttons 属性）
+            var isRightClick = e.Buttons.ToString().Contains("Right");
+
+            if (isRightClick)
+            {
+                // 右键点击：直接选中当前项，不清除其他选中项（除非没有按 Ctrl）
+                if (!_isCtrlPressed)
+                {
+                    foreach (var f in _viewModel.Files)
+                    {
+                        f.IsSelected = false;
+                    }
+                }
+                item.IsSelected = true;
+                _lastSelectedIndex = currentIndex;
+                _viewModel.NotifySelectionChanged();
+                return; // 右键点击只处理选中，不处理其他逻辑
+            }
+
+            // 左键点击的原有逻辑
             if (_isCtrlPressed)
             {
                 item.IsSelected = !item.IsSelected;
@@ -272,19 +292,9 @@ public partial class PadPage : ContentPage
     {
         try
         {
-            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 打开文件: {file.FileName}");
-
-                // 设置选中状态
-                SetFileSelected(file);
-                _viewModel.NotifySelectionChanged();
-
                 await _viewModel.OpenFileAsync(file);
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
             }
         }
         catch (Exception ex)
@@ -297,14 +307,8 @@ public partial class PadPage : ContentPage
     {
         try
         {
-            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 重命名文件: {file.FileName}");
-
-                // 设置选中状态
-                SetFileSelected(file);
-                _viewModel.NotifySelectionChanged();
-
                 string newName = await DisplayPromptAsync("重命名文件", "请输入新的文件名：", initialValue: file.FileName, accept: "重命名", cancel: "取消");
                 if (!string.IsNullOrWhiteSpace(newName))
                 {
@@ -322,19 +326,9 @@ public partial class PadPage : ContentPage
     {
         try
         {
-            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 下载文件: {file.FileName}");
-
-                // 设置选中状态
-                SetFileSelected(file);
-                _viewModel.NotifySelectionChanged();
-
                 await _viewModel.DownloadAndSaveAsync(file);
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
             }
         }
         catch (Exception ex)
@@ -347,41 +341,15 @@ public partial class PadPage : ContentPage
     {
         try
         {
-            if (sender is MenuFlyoutItem item && item.CommandParameter is SelectableFileItem file)
+            if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 删除文件: {file.FileName}");
-
-                // 设置选中状态
-                SetFileSelected(file);
-                _viewModel.NotifySelectionChanged();
-
                 await _viewModel.DeleteFileAsync(file, showConfirmation: true);
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine($"[ContextMenu] 参数类型错误: {sender?.GetType()}");
             }
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[ContextMenu] 删除文件失败: {ex.Message}");
         }
-    }
-
-    private void SetFileSelected(SelectableFileItem file)
-    {
-        var currentIndex = _viewModel.Files.IndexOf(file);
-        if (currentIndex < 0) return;
-
-        if (!_isCtrlPressed)
-        {
-            foreach (var f in _viewModel.Files)
-            {
-                f.IsSelected = false;
-            }
-        }
-        file.IsSelected = true;
-        _lastSelectedIndex = currentIndex;
     }
 
     #endregion

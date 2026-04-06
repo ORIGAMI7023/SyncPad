@@ -498,8 +498,7 @@ public class PadViewModel : BaseViewModel, IDisposable
             // 打开资源管理器定位
             OpenInFileExplorer(destPath);
 
-            await Application.Current!.MainPage!.DisplayAlert("下载成功",
-                $"文件已保存到 {destPath}", "确定");
+            // 移除下载成功弹窗，文件已在资源管理器中打开
         }
         catch (Exception ex)
         {

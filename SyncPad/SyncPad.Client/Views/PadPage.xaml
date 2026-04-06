@@ -194,7 +194,7 @@
 
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Frame Padding="10,8"
+                            <Frame x:Name="ItemFrame" Padding="10,8"
                                    CornerRadius="4"
                                    HasShadow="False"
                                    BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
@@ -205,12 +205,20 @@
 
                                 <FlyoutBase.ContextFlyout>
                                     <MenuFlyout>
-                                        <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" CommandParameter="{Binding .}"/>
-                                        <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
+                                        <!-- 第一个菜单项，用于在右键菜单打开时触发选中 -->
+                                        <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" BindingContext="{Binding Source={x:Reference ItemFrame}, Path=BindingContext}"/>
+                                        <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" BindingContext="{Binding Source={x:Reference ItemFrame}, Path=BindingContext}"/>
+                                        <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" BindingContext="{Binding Source={x:Reference ItemFrame}, Path=BindingContext}"/>
+                                        <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" BindingContext="{Binding Source={x:Reference ItemFrame}, Path=BindingContext}"/>
                                     </MenuFlyout>
                                 </FlyoutBase.ContextFlyout>
+
+                                <Frame.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnFileCardTapped"/>
+                                    <TapGestureRecognizer NumberOfTapsRequired="2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:PadViewModel}}, Path=OpenFileCommand}"
+                                                        CommandParameter="{Binding .}"/>
+                                </Frame.GestureRecognizers>
 
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
@@ -513,7 +521,7 @@
 
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate>
-                                        <Frame Padding="10,8"
+                                        <Frame x:Name="MobileItemFrame" Padding="10,8"
                                                CornerRadius="4"
                                                HasShadow="False"
                                                BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
@@ -524,10 +532,11 @@
 
                                             <FlyoutBase.ContextFlyout>
                                                 <MenuFlyout>
-                                                    <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
-                                                    <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" CommandParameter="{Binding .}"/>
-                                                    <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" CommandParameter="{Binding .}"/>
-                                                    <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
+                                                    <!-- 手动将 MenuFlyoutItem 的 BindingContext 绑定到 Frame 的上下文 -->
+                                                    <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" BindingContext="{Binding Source={x:Reference MobileItemFrame}, Path=BindingContext}"/>
+                                                    <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" BindingContext="{Binding Source={x:Reference MobileItemFrame}, Path=BindingContext}"/>
+                                                    <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" BindingContext="{Binding Source={x:Reference MobileItemFrame}, Path=BindingContext}"/>
+                                                    <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" BindingContext="{Binding Source={x:Reference MobileItemFrame}, Path=BindingContext}"/>
                                                 </MenuFlyout>
                                             </FlyoutBase.ContextFlyout>
 
