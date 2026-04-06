@@ -20,15 +20,18 @@ if [ $? -eq 0 ]; then
   echo "✅ 构建成功！"
   echo "📦 应用位置: ~/Library/Developer/Xcode/DerivedData/SyncPad-*/Build/Products/$CONFIG/SyncPad-macOS.app"
 
-  # 询问是否运行
-  read -p "是否运行应用？(y/n) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData/SyncPad-*/Build/Products/$CONFIG/SyncPad-macOS.app -type d 2>/dev/null | head -1)
-    if [ -n "$APP_PATH" ]; then
-      echo "🚀 启动应用..."
-      open "$APP_PATH"
-    fi
+  APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData/SyncPad-*/Build/Products/$CONFIG/SyncPad-macOS.app -type d 2>/dev/null | head -1)
+
+  # 关闭正在运行的旧实例
+  if pgrep -x "SyncPad-macOS" > /dev/null; then
+    echo "🔄 关闭旧实例..."
+    killall "SyncPad-macOS" 2>/dev/null
+    sleep 0.5
+  fi
+
+  if [ -n "$APP_PATH" ]; then
+    echo "🚀 启动应用..."
+    open "$APP_PATH"
   fi
 else
   echo "❌ 构建失败"

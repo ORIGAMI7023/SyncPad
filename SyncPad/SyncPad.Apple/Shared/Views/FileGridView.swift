@@ -104,33 +104,32 @@ struct FileGridView: View {
             },
             onDownload: {
                 Task {
-                    if let url = await viewModel.downloadFile(file) {
+                    if let cacheURL = await viewModel.downloadFile(file) {
                         #if os(macOS)
-                        // 显示成功提示并提供打开选项
-                        let alert = NSAlert()
-                        alert.messageText = "下载成功"
-                        alert.informativeText = "文件已保存到缓存目录"
-                        alert.alertStyle = .informational
-                        alert.addButton(withTitle: "打开")
-                        alert.addButton(withTitle: "确定")
+                        let downloadsDir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+                        let destURL = downloadsDir.appendingPathComponent(file.fileName)
 
-                        let response = alert.runModal()
-                        if response == .alertFirstButtonReturn {
-                            NSWorkspace.shared.open(url)
+                        // 处理同名文件
+                        var finalURL = destURL
+                        var counter = 1
+                        while FileManager.default.fileExists(atPath: finalURL.path) {
+                            let name = (file.fileName as NSString).deletingPathExtension
+                            let ext = (file.fileName as NSString).pathExtension
+                            let newName = ext.isEmpty ? "\(name) (\(counter))" : "\(name) (\(counter)).\(ext)"
+                            finalURL = downloadsDir.appendingPathComponent(newName)
+                            counter += 1
                         }
-                        #else
-                        // iOS: 显示成功提示并提供打开选项
-                        // TODO: 添加 iOS 原生提示
-                        #endif
-                    } else {
-                        // 显示失败提示
-                        #if os(macOS)
-                        let alert = NSAlert()
-                        alert.messageText = "下载失败"
-                        alert.informativeText = viewModel.errorMessage ?? "未知错误"
-                        alert.alertStyle = .warning
-                        alert.addButton(withTitle: "确定")
-                        alert.runModal()
+
+                        do {
+                            try FileManager.default.copyItem(at: cacheURL, to: finalURL)
+                        } catch {
+                            let alert = NSAlert()
+                            alert.messageText = "下载失败"
+                            alert.informativeText = error.localizedDescription
+                            alert.alertStyle = .warning
+                            alert.addButton(withTitle: "确定")
+                            alert.runModal()
+                        }
                         #endif
                     }
                 }

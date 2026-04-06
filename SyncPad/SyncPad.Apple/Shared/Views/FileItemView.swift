@@ -60,6 +60,7 @@ struct FileItemView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovering ? Color.blue.opacity(0.1) : Color.clear)
