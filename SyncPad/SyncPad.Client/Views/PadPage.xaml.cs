@@ -286,7 +286,43 @@ public partial class PadPage : ContentPage
 
     #endregion
 
+    #region 右键选中（平台特定）
+
+    private void OnFileItemFrameLoaded(object? sender, EventArgs e)
+    {
+#if WINDOWS
+        if (sender is Frame frame && frame.Handler?.PlatformView is Microsoft.UI.Xaml.FrameworkElement nativeElement)
+        {
+            nativeElement.RightTapped += (s, args) =>
+            {
+                if (frame.BindingContext is SelectableFileItem file)
+                {
+                    SelectFileForContextMenu(file);
+                }
+            };
+        }
+#endif
+    }
+
+    #endregion
+
     #region 右键菜单事件
+
+    // 在右键菜单打开前先选中文件
+    private void SelectFileForContextMenu(SelectableFileItem file)
+    {
+        if (!_isCtrlPressed)
+        {
+            // 如果没有按 Ctrl，清除其他选中项
+            foreach (var f in _viewModel.Files)
+            {
+                f.IsSelected = false;
+            }
+        }
+        file.IsSelected = true;
+        _lastSelectedIndex = _viewModel.Files.IndexOf(file);
+        _viewModel.NotifySelectionChanged();
+    }
 
     private async void OnContextMenuOpen(object? sender, EventArgs e)
     {
@@ -294,6 +330,7 @@ public partial class PadPage : ContentPage
         {
             if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
+                SelectFileForContextMenu(file);
                 await _viewModel.OpenFileAsync(file);
             }
         }
@@ -309,6 +346,7 @@ public partial class PadPage : ContentPage
         {
             if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
+                SelectFileForContextMenu(file);
                 string newName = await DisplayPromptAsync("重命名文件", "请输入新的文件名：", initialValue: file.FileName, accept: "重命名", cancel: "取消");
                 if (!string.IsNullOrWhiteSpace(newName))
                 {
@@ -328,6 +366,7 @@ public partial class PadPage : ContentPage
         {
             if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
+                SelectFileForContextMenu(file);
                 await _viewModel.DownloadAndSaveAsync(file);
             }
         }
@@ -343,6 +382,7 @@ public partial class PadPage : ContentPage
         {
             if (sender is MenuFlyoutItem item && item.BindingContext is SelectableFileItem file)
             {
+                SelectFileForContextMenu(file);
                 await _viewModel.DeleteFileAsync(file, showConfirmation: true);
             }
         }

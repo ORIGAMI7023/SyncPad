@@ -198,7 +198,8 @@
                                    CornerRadius="4"
                                    HasShadow="False"
                                    BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
-                                   Margin="2,1">
+                                   Margin="2,1"
+                                   Loaded="OnFileItemFrameLoaded">
                                 <Frame.BackgroundColor>
                                     <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                 </Frame.BackgroundColor>
