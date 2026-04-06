@@ -99,13 +99,40 @@ struct FileGridView: View {
     private func fileItem(_ file: FileItemDto) -> some View {
         FileItemView(
             file: file,
+            onOpen: {
+                Task {
+                    await openFile(file)
+                }
+            },
             onDownload: {
                 Task {
                     if let url = await viewModel.downloadFile(file) {
                         #if os(macOS)
-                        NSWorkspace.shared.open(url)
+                        // 显示成功提示并提供打开选项
+                        let alert = NSAlert()
+                        alert.messageText = "下载成功"
+                        alert.informativeText = "文件已保存到缓存目录"
+                        alert.alertStyle = .informational
+                        alert.addButton(withTitle: "打开")
+                        alert.addButton(withTitle: "确定")
+
+                        let response = alert.runModal()
+                        if response == .alertFirstButtonReturn {
+                            NSWorkspace.shared.open(url)
+                        }
                         #else
-                        // iOS: 使用 QuickLook 或 Share Sheet
+                        // iOS: 显示成功提示并提供打开选项
+                        // TODO: 添加 iOS 原生提示
+                        #endif
+                    } else {
+                        // 显示失败提示
+                        #if os(macOS)
+                        let alert = NSAlert()
+                        alert.messageText = "下载失败"
+                        alert.informativeText = viewModel.errorMessage ?? "未知错误"
+                        alert.alertStyle = .warning
+                        alert.addButton(withTitle: "确定")
+                        alert.runModal()
                         #endif
                     }
                 }
@@ -113,8 +140,41 @@ struct FileGridView: View {
             onDelete: {
                 selectedFile = file
                 showingDeleteAlert = true
+            },
+            onRename: { newName in
+                Task {
+                    await viewModel.renameFile(file, newName: newName)
+                }
             }
         )
+    }
+
+    // MARK: - Open File
+
+    private func openFile(_ file: FileItemDto) async {
+        // 检查文件是否已缓存
+        let cacheManager = FileCacheManager.shared
+        if cacheManager.isCached(fileId: file.id) {
+            // 文件已缓存，直接打开
+            if let url = cacheManager.getCacheURL(fileId: file.id, fileName: file.fileName) {
+                #if os(macOS)
+                NSWorkspace.shared.open(url)
+                #else
+                // iOS: 使用 QuickLook 或其他方式打开
+                // TODO: 实现 iOS 打开逻辑
+                #endif
+            }
+        } else {
+            // 文件未缓存，提示用户先下载
+            #if os(macOS)
+            let alert = NSAlert()
+            alert.messageText = "文件未下载"
+            alert.informativeText = "请先下载文件后再打开"
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "确定")
+            alert.runModal()
+            #endif
+        }
     }
 
     // MARK: - Drop Handler

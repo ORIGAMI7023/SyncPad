@@ -3,10 +3,14 @@ import SwiftUI
 // MARK: - File Item View
 struct FileItemView: View {
     let file: FileItemDto
+    let onOpen: () -> Void
     let onDownload: () -> Void
     let onDelete: () -> Void
+    let onRename: ((String) -> Void)?
 
     @State private var isHovering: Bool = false
+    @State private var showRenameDialog: Bool = false
+    @State private var newFileName: String = ""
 
     var body: some View {
         VStack(spacing: 8) {
@@ -52,9 +56,22 @@ struct FileItemView: View {
         }
         .contextMenu {
             Button {
+                onOpen()
+            } label: {
+                Label("打开", systemImage: "doc.text")
+            }
+
+            Button {
                 onDownload()
             } label: {
-                Label("下载并打开", systemImage: "arrow.down.doc")
+                Label("下载", systemImage: "arrow.down.doc")
+            }
+
+            Button {
+                newFileName = file.fileName
+                showRenameDialog = true
+            } label: {
+                Label("重命名", systemImage: "pencil")
             }
 
             Divider()
@@ -64,6 +81,17 @@ struct FileItemView: View {
             } label: {
                 Label("删除", systemImage: "trash")
             }
+        }
+        .alert("重命名文件", isPresented: $showRenameDialog) {
+            TextField("新文件名", text: $newFileName)
+            Button("取消", role: .cancel) {}
+            Button("确定") {
+                if !newFileName.isEmpty {
+                    onRename?(newFileName)
+                }
+            }
+        } message: {
+            Text("请输入新的文件名")
         }
     }
 
@@ -162,7 +190,13 @@ struct FileItemView: View {
             uploadedAt: Date(),
             expiresAt: Date().addingTimeInterval(86400 * 7)
         ),
+        onOpen: {
+            print("打开文件")
+        },
         onDownload: {},
-        onDelete: {}
+        onDelete: {},
+        onRename: { newName in
+            print("重命名: \(newName)")
+        }
     )
 }

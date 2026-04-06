@@ -389,10 +389,14 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            if (_cacheManager.IsCached(file.Id))
-                return;
-
             var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+
+            if (_cacheManager.IsCached(file.Id))
+            {
+                await Application.Current!.MainPage!.DisplayAlert("下载",
+                    $"文件已缓存\n路径: {cachePath}", "确定");
+                return;
+            }
 
             var success = await _fileClient.DownloadFileToCacheAsync(
                 file.Id,
@@ -403,16 +407,21 @@ public class PadViewModel : BaseViewModel, IDisposable
             if (success)
             {
                 _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
+                await Application.Current!.MainPage!.DisplayAlert("下载成功",
+                    $"文件已保存到缓存目录\n文件名: {file.FileName}", "确定");
             }
             else
             {
                 _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
+                await Application.Current!.MainPage!.DisplayAlert("下载失败",
+                    "请检查网络连接后重试", "确定");
             }
         }
         catch (Exception ex)
         {
             _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-            System.Diagnostics.Debug.WriteLine($"下载文件失败: {ex.Message}");
+            await Application.Current!.MainPage!.DisplayAlert("下载失败",
+                $"错误：{ex.Message}", "确定");
         }
     }
 

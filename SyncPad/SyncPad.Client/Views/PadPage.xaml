@@ -58,7 +58,9 @@
                         BackgroundColor="#6C757D"
                         TextColor="White"
                         CornerRadius="4"
-                        Padding="10,5"/>
+                        Padding="12,6"
+                        HeightRequest="32"
+                        VerticalOptions="Center"/>
 
                 <Button Grid.Column="2"
                         Text="登出"
@@ -66,7 +68,9 @@
                         BackgroundColor="#DC3545"
                         TextColor="White"
                         CornerRadius="4"
-                        Padding="10,5"/>
+                        Padding="12,6"
+                        HeightRequest="32"
+                        VerticalOptions="Center"/>
             </Grid>
 
             <!-- 文本编辑区域 -->
@@ -396,7 +400,9 @@
                                 BackgroundColor="#6C757D"
                                 TextColor="White"
                                 CornerRadius="4"
-                                Padding="10,5"/>
+                                Padding="12,6"
+                                HeightRequest="32"
+                                VerticalOptions="Center"/>
 
                         <Button Grid.Column="2"
                                 Text="登出"
@@ -404,7 +410,9 @@
                                 BackgroundColor="#DC3545"
                                 TextColor="White"
                                 CornerRadius="4"
-                                Padding="10,5"/>
+                                Padding="12,6"
+                                HeightRequest="32"
+                                VerticalOptions="Center"/>
                     </Grid>
 
                     <Editor Grid.Row="1"

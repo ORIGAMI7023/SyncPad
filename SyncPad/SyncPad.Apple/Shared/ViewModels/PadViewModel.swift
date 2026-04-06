@@ -200,6 +200,21 @@ class PadViewModel: ObservableObject {
     }
 
     /// 删除文件
+    /// 重命名文件
+    func renameFile(_ file: FileItemDto, newName: String) async {
+        do {
+            let success = try await fileClient.renameFile(fileId: file.id, newName: newName)
+            if success {
+                // 重新加载文件列表以获取最新数据
+                await refreshFiles()
+            } else {
+                errorMessage = "重命名失败"
+            }
+        } catch {
+            errorMessage = "重命名失败: \(error.localizedDescription)"
+        }
+    }
+
     func deleteFile(_ file: FileItemDto) async {
         do {
             let success = try await fileClient.deleteFile(fileId: file.id)
