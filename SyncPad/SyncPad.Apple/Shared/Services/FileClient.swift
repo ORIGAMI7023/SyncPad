@@ -137,13 +137,13 @@ class FileClient: ObservableObject {
 
     /// 重命名文件
     func renameFile(fileId: Int, newName: String) async throws -> Bool {
-        let url = URL(string: "\(baseURL)/api/files/rename")!
+        let url = URL(string: "\(baseURL)/api/files/\(fileId)/rename")!
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         addAuthHeader(&request)
 
-        let body = ["fileId": fileId, "newName": newName]
+        let body = ["newFileName": newName]
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
