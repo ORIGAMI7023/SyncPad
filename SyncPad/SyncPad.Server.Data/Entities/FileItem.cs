@@ -23,9 +23,9 @@ public class FileItem
     public long FileSize { get; set; }
 
     /// <summary>
-    /// 文件内容 SHA-256 哈希（用于去重）
+    /// XXHash64 十六进制（16字符，唯一索引）
     /// </summary>
-    public required string ContentHash { get; set; }
+    public required string Hash { get; set; }
 
     /// <summary>
     /// MIME 类型
@@ -43,14 +43,9 @@ public class FileItem
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
-    /// 是否已删除（逻辑删除）
+    /// 文件状态：active（正常显示）/ cached（已删除，文件体保留）
     /// </summary>
-    public bool IsDeleted { get; set; }
-
-    /// <summary>
-    /// 删除时间
-    /// </summary>
-    public DateTime? DeletedAt { get; set; }
+    public string Status { get; set; } = "active";
 
     // 导航属性
     public User? User { get; set; }

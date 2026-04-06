@@ -5,6 +5,7 @@ struct FileItemDto: Codable, Identifiable {
     let id: Int
     let fileName: String
     let fileSize: Int64
+    let hash: String
     let mimeType: String?
     let uploadedAt: Date
     let expiresAt: Date
@@ -13,6 +14,7 @@ struct FileItemDto: Codable, Identifiable {
         case id
         case fileName
         case fileSize
+        case hash
         case mimeType
         case uploadedAt
         case expiresAt
@@ -43,6 +45,12 @@ enum FileStatus {
     case remote  // 仅在服务器
     case cached  // 已缓存
     case error   // 出错
+}
+
+// MARK: - Check Hash Result
+struct CheckHashResult: Codable {
+    let exists: Bool
+    let status: String?
 }
 
 // MARK: - File Type Helper

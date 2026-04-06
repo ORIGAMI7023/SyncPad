@@ -14,6 +14,9 @@ struct SyncPadApp: App {
                 }
             }
             .animation(.easeInOut, value: authManager.isLoggedIn)
+            .task {
+                FileCacheManager.shared.cleanupExpiredCache()
+            }
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)

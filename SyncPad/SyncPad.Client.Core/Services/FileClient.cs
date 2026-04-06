@@ -94,7 +94,22 @@ public class FileClient : IFileClient
         }
     }
 
-    public async Task<FileUploadResponse> UploadFileAsync(string fileName, Stream stream, string? mimeType, bool overwrite = false)
+    public async Task<ApiResponse<CheckHashResult>> CheckHashAsync(string hash)
+    {
+        try
+        {
+            EnsureBaseAddress();
+            var response = await _httpClient.GetFromJsonAsync<ApiResponse<CheckHashResult>>(
+                $"api/files/check-hash?hash={hash}");
+            return response ?? ApiResponse<CheckHashResult>.Fail("服务器返回空响应");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<CheckHashResult>.Fail($"检查失败: {ex.Message}");
+        }
+    }
+
+    public async Task<FileUploadResponse> UploadFileAsync(string fileName, Stream stream, string? mimeType, string hash, bool overwrite = false)
     {
         try
         {
@@ -106,6 +121,7 @@ public class FileClient : IFileClient
                 streamContent.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
 
             content.Add(streamContent, "file", fileName);
+            content.Add(new StringContent(hash), "hash");
 
             var url = overwrite ? "api/files?overwrite=true" : "api/files";
             System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - URL: {_httpClient.BaseAddress}{url}");
@@ -131,6 +147,27 @@ public class FileClient : IFileClient
             System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - Exception: {ex.Message}");
             System.Diagnostics.Debug.WriteLine($"[FileClient] UploadFileAsync - StackTrace: {ex.StackTrace}");
             return new FileUploadResponse { Success = false, ErrorMessage = $"上传失败: {ex.Message}" };
+        }
+    }
+
+    public async Task<FileUploadResponse> InstantUploadAsync(string fileName, string hash)
+    {
+        try
+        {
+            EnsureBaseAddress();
+            var request = new { fileName, hash };
+            var response = await _httpClient.PostAsJsonAsync("api/files/instant-upload", request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                return new FileUploadResponse { Success = false, ErrorMessage = $"秒传失败 ({response.StatusCode}): {errorContent}" };
+            }
+            var result = await response.Content.ReadFromJsonAsync<FileUploadResponse>();
+            return result ?? new FileUploadResponse { Success = false, ErrorMessage = "服务器返回空响应" };
+        }
+        catch (Exception ex)
+        {
+            return new FileUploadResponse { Success = false, ErrorMessage = $"秒传失败: {ex.Message}" };
         }
     }
 

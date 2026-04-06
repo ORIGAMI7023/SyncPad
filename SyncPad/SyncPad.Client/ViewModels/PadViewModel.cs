@@ -117,11 +117,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     /// </summary>
     public string? GetCachedFilePath(SelectableFileItem file)
     {
-        if (_cacheManager.IsCached(file.Id))
-        {
-            return _cacheManager.GetCachePath(file.Id, file.FileName);
-        }
-        return null;
+        return _cacheManager.FindCachedFile(file.FileName);
     }
 
     public event Action? LogoutRequested;
@@ -141,7 +137,7 @@ public class PadViewModel : BaseViewModel, IDisposable
         SelectFileCommand = new Command(async () => await SelectFileAsync());
         OpenFileCommand = new Command<SelectableFileItem>(async f => await OpenFileAsync(f));
         DeleteFileCommand = new Command<SelectableFileItem>(async f => await DeleteFileAsync(f));
-        DownloadFileCommand = new Command<SelectableFileItem>(async f => await DownloadToCacheAsync(f));
+        DownloadFileCommand = new Command<SelectableFileItem>(async f => await DownloadAndSaveAsync(f));
         ToggleFileSelectionCommand = new Command<SelectableFileItem>(ToggleFileSelection);
         BatchDownloadCommand = new Command(async () => await BatchDownloadAsync(), () => HasSelectedFiles);
         BatchDeleteCommand = new Command(async () => await BatchDeleteAsync(), () => HasSelectedFiles);
@@ -337,18 +333,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            // 检查同名文件
-            if (await _fileClient.FileExistsAsync(fileResult.FileName))
-            {
-                var overwrite = await Application.Current!.MainPage!.DisplayAlert(
-                    "文件已存在",
-                    $"文件 \"{fileResult.FileName}\" 已存在，是否覆盖？",
-                    "覆盖", "取消");
-
-                if (!overwrite) return;
-            }
-
-            // 读取文件到内存流，避免原始流被关闭
+            // 读取文件到内存流
             using var memoryStream = new MemoryStream();
             using (var stream = await fileResult.OpenReadAsync())
             {
@@ -360,19 +345,59 @@ public class PadViewModel : BaseViewModel, IDisposable
                 await stream.CopyToAsync(memoryStream);
             }
 
-            // 重置流位置
-            memoryStream.Position = 0;
-
-            var contentType = fileResult.ContentType ?? "application/octet-stream";
-            var response = await _fileClient.UploadFileAsync(
-                fileResult.FileName,
-                memoryStream,
-                contentType,
-                overwrite: true);
-
-            if (!response.Success)
+            // 写入临时文件计算 XXHash64
+            var tempPath = Path.Combine(Path.GetTempPath(), $"syncpad_upload_{Guid.NewGuid()}");
+            try
             {
-                await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                await File.WriteAllBytesAsync(tempPath, memoryStream.ToArray());
+                var hash = _cacheManager.ComputeXXHash64(tempPath);
+                if (hash == null)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", "无法计算文件哈希", "确定");
+                    return;
+                }
+
+                // 第一步：检查 hash
+                var checkResult = await _fileClient.CheckHashAsync(hash);
+                if (checkResult.Success && checkResult.Data != null)
+                {
+                    if (checkResult.Data.Exists && checkResult.Data.Status == "active")
+                    {
+                        await Application.Current!.MainPage!.DisplayAlert("提示", "文件已存在", "确定");
+                        return;
+                    }
+
+                    if (checkResult.Data.Exists && checkResult.Data.Status == "cached")
+                    {
+                        // 秒传
+                        var instantResponse = await _fileClient.InstantUploadAsync(fileResult.FileName, hash);
+                        if (!instantResponse.Success)
+                        {
+                            await Application.Current!.MainPage!.DisplayAlert("上传失败", instantResponse.ErrorMessage, "确定");
+                        }
+                        return;
+                    }
+                }
+
+                // 正常上传
+                memoryStream.Position = 0;
+                var contentType = fileResult.ContentType ?? "application/octet-stream";
+                var response = await _fileClient.UploadFileAsync(
+                    fileResult.FileName,
+                    memoryStream,
+                    contentType,
+                    hash,
+                    overwrite: true);
+
+                if (!response.Success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
             }
         }
         catch (Exception ex)
@@ -383,111 +408,147 @@ public class PadViewModel : BaseViewModel, IDisposable
     }
 
     /// <summary>
-    /// 下载文件到缓存（用于批量下载，不打开文件）
+    /// 下载文件到缓存（XXHash64 命名），返回缓存路径
     /// </summary>
-    private async Task DownloadToCacheAsync(SelectableFileItem file)
+    private async Task<string?> DownloadToCacheAsync(SelectableFileItem file)
     {
         try
         {
-            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
+            // 优先用 hash 查缓存
+            var cachedPath = _cacheManager.FindCachedFileByHash(file.Hash);
+            if (cachedPath != null)
+                return cachedPath;
 
-            if (_cacheManager.IsCached(file.Id))
-            {
-                await Application.Current!.MainPage!.DisplayAlert("下载",
-                    $"文件已缓存\n路径: {cachePath}", "确定");
-                return;
-            }
+            // 下载到临时路径
+            var cacheDir = ((FileCacheManager)_cacheManager).GetCacheDirectory();
+            var tempPath = Path.Combine(cacheDir, $"tmp_{file.Id}_{file.FileName}");
 
             var success = await _fileClient.DownloadFileToCacheAsync(
                 file.Id,
                 file.FileName,
-                cachePath,
+                tempPath,
                 null);
 
-            if (success)
+            if (!success)
+                return null;
+
+            // 计算 XXHash64
+            var hash = _cacheManager.ComputeXXHash64(tempPath);
+            var safeFileName = file.FileName.Replace("/", "_").Replace("\\", "_");
+
+            string finalPath;
+            if (hash != null)
             {
-                _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
-                await Application.Current!.MainPage!.DisplayAlert("下载成功",
-                    $"文件已保存到缓存目录\n文件名: {file.FileName}", "确定");
+                finalPath = Path.Combine(cacheDir, $"{hash}_{safeFileName}");
             }
             else
             {
-                _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-                await Application.Current!.MainPage!.DisplayAlert("下载失败",
-                    "请检查网络连接后重试", "确定");
+                finalPath = Path.Combine(cacheDir, $"0000000000000000_{safeFileName}");
             }
+
+            // 如果目标已存在（同内容），删除临时文件
+            if (File.Exists(finalPath))
+            {
+                File.Delete(tempPath);
+                return finalPath;
+            }
+
+            // 移动到最终缓存路径
+            File.Move(tempPath, finalPath);
+            return finalPath;
         }
         catch (Exception ex)
         {
-            _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-            await Application.Current!.MainPage!.DisplayAlert("下载失败",
-                $"错误：{ex.Message}", "确定");
+            System.Diagnostics.Debug.WriteLine($"下载文件到缓存失败: {ex.Message}");
+            return null;
         }
     }
 
+    /// <summary>
+    /// 统一流程：下载到缓存 → 复制到 Downloads → 打开资源管理器定位
+    /// </summary>
+    private async Task DownloadAndSaveAsync(SelectableFileItem file)
+    {
+        try
+        {
+            var cachePath = await DownloadToCacheAsync(file);
+            if (cachePath == null)
+            {
+                await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件，请检查网络连接", "确定");
+                return;
+            }
+
+            // 复制到 Downloads 目录
+            var downloadsDir = GetDownloadsDirectory();
+            var destPath = Path.Combine(downloadsDir, file.FileName);
+
+            // 处理同名文件
+            var counter = 1;
+            while (File.Exists(destPath))
+            {
+                var name = Path.GetFileNameWithoutExtension(file.FileName);
+                var ext = Path.GetExtension(file.FileName);
+                var newName = string.IsNullOrEmpty(ext) ? $"{name} ({counter})" : $"{name} ({counter}){ext}";
+                destPath = Path.Combine(downloadsDir, newName);
+                counter++;
+            }
+
+            File.Copy(cachePath, destPath);
+
+            // 打开资源管理器定位
+            OpenInFileExplorer(destPath);
+
+            await Application.Current!.MainPage!.DisplayAlert("下载成功",
+                $"文件已保存到 {destPath}", "确定");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current!.MainPage!.DisplayAlert("下载失败", $"错误：{ex.Message}", "确定");
+        }
+    }
+
+    /// <summary>
+    /// 打开文件：下载到缓存 → 复制到 Downloads → 用默认应用打开 → 定位到文件
+    /// </summary>
     private async Task OpenFileAsync(SelectableFileItem file)
     {
         try
         {
-            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
-
-            // 验证缓存路径
-            if (string.IsNullOrEmpty(cachePath))
+            var cachePath = await DownloadToCacheAsync(file);
+            if (cachePath == null)
             {
-                await Application.Current!.MainPage!.DisplayAlert("打开失败", "无法确定文件缓存路径", "确定");
+                await Application.Current!.MainPage!.DisplayAlert("打开失败", "无法下载文件，请检查网络连接", "确定");
                 return;
             }
 
-            // 检查是否已缓存
-            if (_cacheManager.IsCached(file.Id))
-            {
-                // 验证文件是否存在
-                if (!File.Exists(cachePath))
-                {
-                    await Application.Current!.MainPage!.DisplayAlert("打开失败", "缓存文件不存在，请重新下载", "确定");
-                    _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-                    return;
-                }
+            // 复制到 Downloads 目录
+            var downloadsDir = GetDownloadsDirectory();
+            var destPath = Path.Combine(downloadsDir, file.FileName);
 
-                await Launcher.Default.OpenAsync(new OpenFileRequest
-                {
-                    File = new ReadOnlyFile(cachePath)
-                });
-                return;
+            // 处理同名文件
+            var counter = 1;
+            while (File.Exists(destPath))
+            {
+                var name = Path.GetFileNameWithoutExtension(file.FileName);
+                var ext = Path.GetExtension(file.FileName);
+                var newName = string.IsNullOrEmpty(ext) ? $"{name} ({counter})" : $"{name} ({counter}){ext}";
+                destPath = Path.Combine(downloadsDir, newName);
+                counter++;
             }
 
-            // 未缓存，先下载
-            var success = await _fileClient.DownloadFileToCacheAsync(
-                file.Id,
-                file.FileName,
-                cachePath,
-                null);
+            File.Copy(cachePath, destPath);
 
-            if (success)
+            // 打开资源管理器定位
+            OpenInFileExplorer(destPath);
+
+            // 用默认应用打开文件
+            await Launcher.Default.OpenAsync(new OpenFileRequest
             {
-                _cacheManager.SetFileStatus(file.Id, FileStatus.Cached);
-
-                // 验证下载的文件
-                if (!File.Exists(cachePath))
-                {
-                    await Application.Current!.MainPage!.DisplayAlert("打开失败", "文件下载后无法找到", "确定");
-                    return;
-                }
-
-                await Launcher.Default.OpenAsync(new OpenFileRequest
-                {
-                    File = new ReadOnlyFile(cachePath)
-                });
-            }
-            else
-            {
-                _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
-                await Application.Current!.MainPage!.DisplayAlert("下载失败", "无法下载文件，请检查网络连接", "确定");
-            }
+                File = new ReadOnlyFile(destPath)
+            });
         }
         catch (Exception ex)
         {
-            _cacheManager.SetFileStatus(file.Id, FileStatus.Remote);
             await Application.Current!.MainPage!.DisplayAlert("打开失败", $"错误：{ex.Message}", "确定");
         }
     }
@@ -511,7 +572,7 @@ public class PadViewModel : BaseViewModel, IDisposable
                 var response = await _fileClient.DeleteFileAsync(file.Id);
                 if (response.Success)
                 {
-                    await _cacheManager.DeleteCacheAsync(file.Id);
+                    await _cacheManager.DeleteCacheAsync(file.FileName);
                 }
                 else
                 {
@@ -547,7 +608,7 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         foreach (var file in SelectedFiles.ToList())
         {
-            await DownloadToCacheAsync(file);
+            await DownloadAndSaveAsync(file);
         }
     }
 
@@ -593,13 +654,8 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            if (!_cacheManager.IsCached(file.Id))
-            {
-                await DownloadToCacheAsync(file);
-            }
-
-            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
-            if (File.Exists(cachePath))
+            var cachePath = await DownloadToCacheAsync(file);
+            if (cachePath != null && File.Exists(cachePath))
             {
                 var success = _fileOperationService.CopyFileToClipboard(cachePath);
                 if (success)
@@ -625,13 +681,8 @@ public class PadViewModel : BaseViewModel, IDisposable
     {
         try
         {
-            if (!_cacheManager.IsCached(file.Id))
-            {
-                await DownloadToCacheAsync(file);
-            }
-
-            var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
-            if (!File.Exists(cachePath))
+            var cachePath = await DownloadToCacheAsync(file);
+            if (cachePath == null || !File.Exists(cachePath))
             {
                 await Application.Current!.MainPage!.DisplayAlert("失败", "文件未缓存", "确定");
                 return;
@@ -669,13 +720,8 @@ public class PadViewModel : BaseViewModel, IDisposable
 
             foreach (var file in selectedFiles)
             {
-                if (!_cacheManager.IsCached(file.Id))
-                {
-                    await DownloadToCacheAsync(file);
-                }
-
-                var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
-                if (File.Exists(cachePath))
+                var cachePath = await DownloadToCacheAsync(file);
+                if (cachePath != null && File.Exists(cachePath))
                 {
                     cachePaths.Add(cachePath);
                 }
@@ -716,13 +762,8 @@ public class PadViewModel : BaseViewModel, IDisposable
 
             foreach (var file in selectedFiles)
             {
-                if (!_cacheManager.IsCached(file.Id))
-                {
-                    await DownloadToCacheAsync(file);
-                }
-
-                var cachePath = _cacheManager.GetCachePath(file.Id, file.FileName);
-                if (File.Exists(cachePath))
+                var cachePath = await DownloadToCacheAsync(file);
+                if (cachePath != null && File.Exists(cachePath))
                 {
                     cachePaths.Add(cachePath);
                 }
@@ -790,16 +831,62 @@ public class PadViewModel : BaseViewModel, IDisposable
     }
 
     /// <summary>
-    /// 上传文件（供外部调用）
+    /// 上传文件（供外部调用，含 hash 计算）
     /// </summary>
     public async Task UploadFileAsync(string fileName, Stream stream, string contentType, bool overwrite = false)
     {
         try
         {
-            var response = await _fileClient.UploadFileAsync(fileName, stream, contentType, overwrite);
-            if (!response.Success)
+            // 写入临时文件计算 hash
+            var tempPath = Path.Combine(Path.GetTempPath(), $"syncpad_upload_{Guid.NewGuid()}");
+            try
             {
-                await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                // 读取流到字节数组
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                var bytes = ms.ToArray();
+                await File.WriteAllBytesAsync(tempPath, bytes);
+
+                var hash = _cacheManager.ComputeXXHash64(tempPath);
+                if (hash == null)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", "无法计算文件哈希", "确定");
+                    return;
+                }
+
+                // 检查 hash
+                var checkResult = await _fileClient.CheckHashAsync(hash);
+                if (checkResult.Success && checkResult.Data != null)
+                {
+                    if (checkResult.Data.Exists && checkResult.Data.Status == "active")
+                    {
+                        await Application.Current!.MainPage!.DisplayAlert("提示", "文件已存在", "确定");
+                        return;
+                    }
+
+                    if (checkResult.Data.Exists && checkResult.Data.Status == "cached")
+                    {
+                        var instantResponse = await _fileClient.InstantUploadAsync(fileName, hash);
+                        if (!instantResponse.Success)
+                        {
+                            await Application.Current!.MainPage!.DisplayAlert("上传失败", instantResponse.ErrorMessage, "确定");
+                        }
+                        return;
+                    }
+                }
+
+                // 正常上传
+                using var uploadStream = new MemoryStream(bytes);
+                var response = await _fileClient.UploadFileAsync(fileName, uploadStream, contentType, hash, overwrite);
+                if (!response.Success)
+                {
+                    await Application.Current!.MainPage!.DisplayAlert("上传失败", response.ErrorMessage, "确定");
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
             }
         }
         catch (Exception ex)
@@ -828,22 +915,13 @@ public class PadViewModel : BaseViewModel, IDisposable
                 return; // 文件名未改变，无需操作
             }
 
-            // 保存旧文件名，用于更新缓存
             string oldFileName = file.FileName;
 
             var response = await _fileClient.RenameFileAsync(file.Id, newName);
             if (response.Success)
             {
-                // 如果文件已缓存，先更新缓存文件名
-                if (_cacheManager.IsCached(file.Id))
-                {
-                    var oldPath = _cacheManager.GetCachePath(file.Id, oldFileName);
-                    var newPath = _cacheManager.GetCachePath(file.Id, newName);
-                    if (File.Exists(oldPath))
-                    {
-                        File.Move(oldPath, newPath);
-                    }
-                }
+                // 删除旧缓存（如果存在）
+                await _cacheManager.DeleteCacheAsync(oldFileName);
 
                 // 更新本地文件项
                 file.File.FileName = newName;
@@ -857,6 +935,38 @@ public class PadViewModel : BaseViewModel, IDisposable
         {
             System.Diagnostics.Debug.WriteLine($"重命名文件失败: {ex.Message}");
             await Application.Current!.MainPage!.DisplayAlert("重命名失败", $"发生错误: {ex.Message}", "确定");
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// <summary>
+    /// 获取 Downloads 目录
+    /// </summary>
+    private static string GetDownloadsDirectory()
+    {
+        // Windows: 用户目录\Downloads
+        // macOS (MAUI): 用户目录\Downloads
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(userProfile, "Downloads");
+    }
+
+    /// <summary>
+    /// 在文件资源管理器中打开并定位到文件
+    /// </summary>
+    private static void OpenInFileExplorer(string filePath)
+    {
+        try
+        {
+#if WINDOWS
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{filePath}\"");
+#elif MACCATALYST || MACOS
+            System.Diagnostics.Process.Start("open", $"-R \"{filePath}\"");
+#endif
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"打开文件管理器失败: {ex.Message}");
         }
     }
 

@@ -12,7 +12,6 @@ public class SyncPadDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<TextContent> TextContents => Set<TextContent>();
     public DbSet<FileItem> FileItems => Set<FileItem>();
-    public DbSet<FileContent> FileContents => Set<FileContent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,24 +41,17 @@ public class SyncPadDbContext : DbContext
         modelBuilder.Entity<FileItem>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.UserId, e.FileName, e.IsDeleted });
-            entity.HasIndex(e => e.ContentHash);
+            entity.HasIndex(e => e.Hash).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.Status });
             entity.HasIndex(e => e.ExpiresAt);
             entity.Property(e => e.FileName).HasMaxLength(255).IsRequired();
-            entity.Property(e => e.ContentHash).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.Hash).HasMaxLength(16).IsRequired();
             entity.Property(e => e.MimeType).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(10).HasDefaultValue("active");
             entity.HasOne(e => e.User)
                   .WithMany(u => u.Files)
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // FileContent 配置
-        modelBuilder.Entity<FileContent>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.ContentHash).IsUnique();
-            entity.Property(e => e.ContentHash).HasMaxLength(64).IsRequired();
         });
     }
 }

@@ -58,10 +58,36 @@ class FileClient: ObservableObject {
         return apiResponse.data ?? false
     }
 
+    // MARK: - Check Hash
+
+    /// 检查 hash 是否已存在
+    func checkHash(_ hash: String) async throws -> CheckHashResult {
+        let url = URL(string: "\(baseURL)/api/files/check-hash?hash=\(hash)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        addAuthHeader(&request)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ApiError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            let decoder = createDecoder()
+            let apiResponse = try decoder.decode(ApiResponse<CheckHashResult>.self, from: data)
+            return apiResponse.data ?? CheckHashResult(exists: false, status: nil)
+        } else if httpResponse.statusCode == 401 {
+            throw ApiError.unauthorized
+        } else {
+            throw ApiError.httpError(statusCode: httpResponse.statusCode)
+        }
+    }
+
     // MARK: - Upload
 
-    /// 上传文件
-    func uploadFile(fileName: String, data: Data, mimeType: String?, overwrite: Bool = false) async throws -> FileUploadResponse {
+    /// 上传文件（携带 hash）
+    func uploadFile(fileName: String, data: Data, mimeType: String?, hash: String, overwrite: Bool = false) async throws -> FileUploadResponse {
         let boundary = UUID().uuidString
         let url = URL(string: "\(baseURL)/api/files?overwrite=\(overwrite)")!
 
@@ -71,6 +97,11 @@ class FileClient: ObservableObject {
         addAuthHeader(&request)
 
         var body = Data()
+
+        // 添加 hash 字段
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"hash\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(hash)\r\n".data(using: .utf8)!)
 
         // 添加文件数据
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
@@ -126,6 +157,35 @@ class FileClient: ObservableObject {
                 try fileManager.removeItem(at: destinationURL)
             }
             try fileManager.moveItem(at: tempURL, to: destinationURL)
+        } else if httpResponse.statusCode == 401 {
+            throw ApiError.unauthorized
+        } else {
+            throw ApiError.httpError(statusCode: httpResponse.statusCode)
+        }
+    }
+
+    // MARK: - Instant Upload
+
+    /// 秒传：通过 hash 直接激活已有文件
+    func instantUpload(fileName: String, hash: String) async throws -> FileUploadResponse {
+        let url = URL(string: "\(baseURL)/api/files/instant-upload")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addAuthHeader(&request)
+
+        let body: [String: String] = ["fileName": fileName, "hash": hash]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let (responseData, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ApiError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            let decoder = createDecoder()
+            return try decoder.decode(FileUploadResponse.self, from: responseData)
         } else if httpResponse.statusCode == 401 {
             throw ApiError.unauthorized
         } else {

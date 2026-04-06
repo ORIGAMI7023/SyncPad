@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		01CF08CBC9DD2185D7E7C2AE /* TextEditorContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE38719E66952E68A55F3936 /* TextEditorContentView.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* XXHash64.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E1D0C9B8A7F6E5D4C3B2A1 /* XXHash64.swift */; };
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* XXHash64.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2E1D0C9B8A7F6E5D4C3B2A1 /* XXHash64.swift */; };
 		06B08B1A8A493E32AC5544FC /* FileItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 694277FFB9DA2D0579C19EE1 /* FileItemView.swift */; };
 		07EB0A6DFAC1E2202074CE87 /* TextSyncMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 561B71488BFE4E7FF1909A79 /* TextSyncMessage.swift */; };
 		0E845DF0B3A50E2086C9F6C0 /* ApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE071E2070F2184D7FD84659 /* ApiClient.swift */; };
@@ -70,6 +72,7 @@
 		D1F4E74163EFB65C600D332B /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		EBC30304009ED778D6BA3131 /* SignalRClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignalRClient.swift; sourceTree = "<group>"; };
 		F6FAB6FE5B9D091F0F014A98 /* FileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileModels.swift; sourceTree = "<group>"; };
+		F2E1D0C9B8A7F6E5D4C3B2A1 /* XXHash64.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XXHash64.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -142,6 +145,7 @@
 				8C79BEBD6673C5F8FA7EC44C /* FileCacheManager.swift */,
 				9D3FDEA0954040B7968FA49F /* FileClient.swift */,
 				EBC30304009ED778D6BA3131 /* SignalRClient.swift */,
+				F2E1D0C9B8A7F6E5D4C3B2A1 /* XXHash64.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -285,6 +289,7 @@
 				F62B41C6D0E543CF0477B2AE /* SyncPadApp.swift in Sources */,
 				AD687EF1DCDBB6B84D4F5380 /* TextEditorContentView.swift in Sources */,
 				07EB0A6DFAC1E2202074CE87 /* TextSyncMessage.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* XXHash64.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -309,6 +314,7 @@
 				803FCBD71C16FD54DF2C397E /* SyncPadApp.swift in Sources */,
 				01CF08CBC9DD2185D7E7C2AE /* TextEditorContentView.swift in Sources */,
 				5219F1B39F4019C4CCA6AA9B /* TextSyncMessage.swift in Sources */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* XXHash64.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

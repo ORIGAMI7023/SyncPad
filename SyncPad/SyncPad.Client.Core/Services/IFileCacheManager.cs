@@ -1,31 +1,34 @@
-using SyncPad.Shared.Models;
-
 namespace SyncPad.Client.Core.Services;
 
 /// <summary>
-/// 文件缓存管理接口
+/// 文件缓存管理接口（XXHash64 缓存键）
 /// </summary>
 public interface IFileCacheManager
 {
     /// <summary>
-    /// 获取文件状态
+    /// 按 hash 查找缓存文件
     /// </summary>
-    FileStatus GetFileStatus(int fileId);
+    string? FindCachedFileByHash(string hash);
 
     /// <summary>
-    /// 更新文件状态
+    /// 遍历缓存目录，按 XXHash64 前缀查找匹配 fileName 的缓存文件
     /// </summary>
-    void SetFileStatus(int fileId, FileStatus status);
+    string? FindCachedFile(string fileName);
 
     /// <summary>
-    /// 获取文件在 tmp 的缓存路径
+    /// 检查文件是否已缓存（按 hash）
     /// </summary>
-    string GetCachePath(int fileId, string fileName);
+    bool IsCachedByHash(string hash);
 
     /// <summary>
-    /// 检查文件是否已缓存
+    /// 检查文件是否已缓存（按文件名）
     /// </summary>
-    bool IsCached(int fileId);
+    bool IsCached(string fileName);
+
+    /// <summary>
+    /// 计算文件的 XXHash64 十六进制字符串
+    /// </summary>
+    string? ComputeXXHash64(string filePath);
 
     /// <summary>
     /// 获取下载进度（0-100）
@@ -43,7 +46,12 @@ public interface IFileCacheManager
     Task ClearAllCacheAsync();
 
     /// <summary>
-    /// 删除指定文件缓存
+    /// 删除指定文件缓存（按文件名查找）
     /// </summary>
-    Task DeleteCacheAsync(int fileId);
+    Task DeleteCacheAsync(string fileName);
+
+    /// <summary>
+    /// 清理过期缓存（默认7天未访问）
+    /// </summary>
+    Task CleanupExpiredCacheAsync(int expirationDays = 7);
 }

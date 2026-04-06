@@ -8,6 +8,7 @@ public class FileItemDto
     public int Id { get; set; }
     public required string FileName { get; set; }
     public long FileSize { get; set; }
+    public required string Hash { get; set; }
     public string? MimeType { get; set; }
     public DateTime UploadedAt { get; set; }
     public DateTime ExpiresAt { get; set; }
@@ -40,5 +41,14 @@ public class FileSyncMessage
     public FileItemDto? File { get; set; }
     public int? FileId { get; set; } // 删除和重命名时使用
     public string? NewFileName { get; set; } // 重命名时使用
+}
+
+/// <summary>
+/// check-hash API 返回结果
+/// </summary>
+public class CheckHashResult
+{
+    public bool Exists { get; set; }
+    public string? Status { get; set; } // "active" / "cached" / null
 }
 

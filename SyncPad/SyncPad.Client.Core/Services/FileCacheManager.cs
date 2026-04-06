@@ -1,20 +1,18 @@
 using System.Collections.Concurrent;
-using SyncPad.Shared.Models;
+using K4os.Hash.xxHash;
 
 namespace SyncPad.Client.Core.Services;
 
 /// <summary>
-/// 文件缓存管理实现
+/// 文件缓存管理实现（XXHash64 缓存键）
 /// </summary>
 public class FileCacheManager : IFileCacheManager
 {
     private readonly string _cacheDirectory;
-    private readonly ConcurrentDictionary<int, FileStatus> _fileStatuses = new();
     private readonly ConcurrentDictionary<int, (long Downloaded, long Total)> _downloadProgress = new();
 
     public FileCacheManager()
     {
-        // 使用应用数据目录下的 tmp 文件夹
         _cacheDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SyncPad",
@@ -23,28 +21,68 @@ public class FileCacheManager : IFileCacheManager
         Directory.CreateDirectory(_cacheDirectory);
     }
 
-    public FileStatus GetFileStatus(int fileId)
+    public string? FindCachedFileByHash(string hash)
     {
-        return _fileStatuses.GetOrAdd(fileId, _ => FileStatus.Remote);
+        if (!Directory.Exists(_cacheDirectory))
+            return null;
+
+        foreach (var file in Directory.GetFiles(_cacheDirectory))
+        {
+            var name = Path.GetFileName(file);
+            if (name.StartsWith(hash + "_"))
+                return file;
+        }
+
+        return null;
     }
 
-    public void SetFileStatus(int fileId, FileStatus status)
+    public string? FindCachedFile(string fileName)
     {
-        _fileStatuses[fileId] = status;
+        var safeFileName = GetSafeFileName(fileName);
+
+        if (!Directory.Exists(_cacheDirectory))
+            return null;
+
+        foreach (var file in Directory.GetFiles(_cacheDirectory))
+        {
+            var name = Path.GetFileName(file);
+            // 格式: {16位hex}_{safeFileName}
+            var suffix = "_" + safeFileName;
+            if (name.EndsWith(suffix) && name.Length > safeFileName.Length + 17)
+            {
+                var hexPart = name[..16];
+                if (hexPart.All(c => char.IsDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                {
+                    return file;
+                }
+            }
+        }
+
+        return null;
     }
 
-    public string GetCachePath(int fileId, string fileName)
+    public bool IsCachedByHash(string hash)
     {
-        // 使用文件 ID + 原始文件名，避免同名冲突
-        var safeFileName = Path.GetFileNameWithoutExtension(fileName);
-        var extension = Path.GetExtension(fileName);
-        return Path.Combine(_cacheDirectory, $"{fileId}_{safeFileName}{extension}");
+        return FindCachedFileByHash(hash) != null;
     }
 
-    public bool IsCached(int fileId)
+    public bool IsCached(string fileName)
     {
-        var status = GetFileStatus(fileId);
-        return status == FileStatus.Cached;
+        return FindCachedFile(fileName) != null;
+    }
+
+    public string? ComputeXXHash64(string filePath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(filePath);
+            var hash = XXH64.DigestOf(stream);
+            return hash.ToString("x16");
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public int GetDownloadProgress(int fileId)
@@ -82,23 +120,19 @@ public class FileCacheManager : IFileCacheManager
             });
         }
 
-        _fileStatuses.Clear();
         _downloadProgress.Clear();
     }
 
-    public async Task DeleteCacheAsync(int fileId)
+    public async Task DeleteCacheAsync(string fileName)
     {
         await Task.Run(() =>
         {
-            // 查找所有以 fileId 开头的缓存文件
-            var pattern = $"{fileId}_*";
-            var files = Directory.GetFiles(_cacheDirectory, pattern);
-
-            foreach (var file in files)
+            var cachedPath = FindCachedFile(fileName);
+            if (cachedPath != null)
             {
                 try
                 {
-                    File.Delete(file);
+                    File.Delete(cachedPath);
                 }
                 catch
                 {
@@ -106,8 +140,46 @@ public class FileCacheManager : IFileCacheManager
                 }
             }
         });
+    }
 
-        _fileStatuses.TryRemove(fileId, out _);
-        _downloadProgress.TryRemove(fileId, out _);
+    public async Task CleanupExpiredCacheAsync(int expirationDays = 7)
+    {
+        await Task.Run(() =>
+        {
+            if (!Directory.Exists(_cacheDirectory))
+                return;
+
+            var expirationInterval = TimeSpan.FromDays(expirationDays);
+            var now = DateTime.UtcNow;
+
+            foreach (var file in Directory.GetFiles(_cacheDirectory))
+            {
+                try
+                {
+                    var lastAccess = File.GetLastAccessTimeUtc(file);
+                    if (now - lastAccess > expirationInterval)
+                    {
+                        File.Delete(file);
+                    }
+                }
+                catch
+                {
+                    // 忽略
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// 获取缓存目录路径
+    /// </summary>
+    public string GetCacheDirectory() => _cacheDirectory;
+
+    /// <summary>
+    /// 生成安全的文件名
+    /// </summary>
+    private static string GetSafeFileName(string fileName)
+    {
+        return fileName.Replace("/", "_").Replace("\\", "_");
     }
 }

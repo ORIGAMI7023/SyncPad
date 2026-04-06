@@ -17,6 +17,10 @@ namespace SyncPad.Client;
 
 public static class MauiProgram
 {
+    private static IFileCacheManager? _cacheManager;
+
+    public static IFileCacheManager? GetCacheManager() => _cacheManager;
+
     public static MauiApp CreateMauiApp()
     {
         var builder = MauiApp.CreateBuilder();
@@ -55,7 +59,8 @@ public static class MauiProgram
         // 注册共享服务
         builder.Services.AddSingleton<IAuthManager, AuthManager>();
         builder.Services.AddSingleton<ITextHubClient, TextHubClient>();
-        builder.Services.AddSingleton<IFileCacheManager, FileCacheManager>();
+        _cacheManager = new FileCacheManager();
+        builder.Services.AddSingleton<IFileCacheManager>(_cacheManager);
         builder.Services.AddSingleton<IFileOperationService, FileOperationService>();
 
         // 注册 ViewModels

@@ -39,26 +39,30 @@ public class FilesController : ControllerBase
     }
 
     /// <summary>
-    /// 检查同名文件是否存在
+    /// 检查 hash 是否已存在
     /// </summary>
-    [HttpGet("exists")]
-    public async Task<ActionResult<ApiResponse<bool>>> CheckFileExists([FromQuery] string fileName)
+    [HttpGet("check-hash")]
+    public async Task<ActionResult<ApiResponse<CheckHashResult>>> CheckHash([FromQuery] string hash)
     {
         var userId = GetUserId();
         if (userId == null)
-            return Unauthorized(ApiResponse<bool>.Fail("未授权"));
+            return Unauthorized(ApiResponse<CheckHashResult>.Fail("未授权"));
 
-        var exists = await _fileService.FileExistsAsync(userId.Value, fileName);
-        return Ok(ApiResponse<bool>.Ok(exists));
+        if (string.IsNullOrEmpty(hash) || hash.Length != 16)
+            return BadRequest(ApiResponse<CheckHashResult>.Fail("hash 格式无效，需要16字符的十六进制"));
+
+        var result = await _fileService.CheckHashAsync(hash);
+        return Ok(ApiResponse<CheckHashResult>.Ok(result));
     }
 
     /// <summary>
-    /// 上传文件
+    /// 上传文件（两步上传：先检查 hash，再传文件体）
     /// </summary>
     [HttpPost]
     [RequestSizeLimit(1024 * 1024 * 1024)] // 1GB 限制
     public async Task<ActionResult<FileUploadResponse>> UploadFile(
         IFormFile file,
+        [FromForm] string hash,
         [FromQuery] bool overwrite = false)
     {
         var userId = GetUserId();
@@ -68,23 +72,43 @@ public class FilesController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest(new FileUploadResponse { Success = false, ErrorMessage = "文件为空" });
 
+        if (string.IsNullOrEmpty(hash) || hash.Length != 16)
+            return BadRequest(new FileUploadResponse { Success = false, ErrorMessage = "hash 格式无效" });
+
         using var stream = file.OpenReadStream();
         var result = await _fileService.UploadFileAsync(
             userId.Value,
             file.FileName,
             stream,
             file.ContentType,
-            overwrite);
+            hash);
 
         if (result.Success && result.File != null)
         {
-            // 通知同账号其他客户端
-            await _hubContext.Clients.Group($"user_{userId}")
-                .SendAsync("ReceiveFileUpdate", new FileSyncMessage
-                {
-                    Action = "added",
-                    File = result.File
-                });
+            await NotifyFileUpdateAsync(userId.Value, "added", result.File);
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// 秒传：仅通过 hash 激活已有文件
+    /// </summary>
+    [HttpPost("instant-upload")]
+    public async Task<ActionResult<FileUploadResponse>> InstantUpload([FromBody] InstantUploadRequest request)
+    {
+        var userId = GetUserId();
+        if (userId == null)
+            return Unauthorized(new FileUploadResponse { Success = false, ErrorMessage = "未授权" });
+
+        if (string.IsNullOrEmpty(request.Hash) || request.Hash.Length != 16)
+            return BadRequest(new FileUploadResponse { Success = false, ErrorMessage = "hash 格式无效" });
+
+        var result = await _fileService.InstantUploadAsync(userId.Value, request.FileName, request.Hash);
+
+        if (result.Success && result.File != null)
+        {
+            await NotifyFileUpdateAsync(userId.Value, "added", result.File);
         }
 
         return Ok(result);
@@ -94,20 +118,18 @@ public class FilesController : ControllerBase
     /// 下载文件（支持 Range 请求）
     /// </summary>
     [HttpGet("{fileId}")]
-    [AllowAnonymous] // 允许匿名访问，因为我们会在方法内部验证token
+    [AllowAnonymous] // 允许匿名访问，通过 token 参数验证
     public async Task<IActionResult> DownloadFile(int fileId, [FromQuery] string? token = null)
     {
         int? userId;
 
-        // 如果提供了token查询参数，使用它进行认证
         if (!string.IsNullOrEmpty(token))
         {
-            // 验证token并获取userId
             var principal = await ValidateTokenAsync(token);
             if (principal == null)
                 return Unauthorized();
 
-            var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var parsedUserId))
                 return Unauthorized();
 
@@ -115,7 +137,6 @@ public class FilesController : ControllerBase
         }
         else
         {
-            // 使用标准Bearer认证
             userId = GetUserId();
             if (userId == null)
                 return Unauthorized();
@@ -126,7 +147,7 @@ public class FilesController : ControllerBase
         if (stream == null)
             return NotFound();
 
-        // 支持 Range 请求（用于断点续传和分块下载）
+        // 支持 Range 请求
         var rangeHeader = Request.Headers["Range"].ToString();
         if (!string.IsNullOrEmpty(rangeHeader) && rangeHeader.StartsWith("bytes="))
         {
@@ -138,7 +159,7 @@ public class FilesController : ControllerBase
 
                 stream.Seek(start, SeekOrigin.Begin);
 
-                Response.StatusCode = 206; // Partial Content
+                Response.StatusCode = 206;
                 Response.Headers["Content-Range"] = $"bytes {start}-{end}/{fileSize}";
                 Response.Headers["Accept-Ranges"] = "bytes";
                 Response.ContentLength = length;
@@ -147,42 +168,12 @@ public class FilesController : ControllerBase
             }
         }
 
-        // 标准全量下载
         Response.Headers["Accept-Ranges"] = "bytes";
         return File(stream, string.IsNullOrWhiteSpace(mimeType) ? "application/octet-stream" : mimeType, fileName, enableRangeProcessing: true);
     }
 
-    private async Task<System.Security.Claims.ClaimsPrincipal?> ValidateTokenAsync(string token)
-    {
-        try
-        {
-            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var key = System.Text.Encoding.ASCII.GetBytes(
-                _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key未配置"));
-
-            var validationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
-                ValidateIssuer = true,
-                ValidIssuer = _configuration["Jwt:Issuer"],
-                ValidateAudience = true,
-                ValidAudience = _configuration["Jwt:Audience"],
-                ValidateLifetime = false, // 不验证过期时间
-                ClockSkew = TimeSpan.Zero
-            };
-
-            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
-            return await Task.FromResult(principal);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     /// <summary>
-    /// 删除文件
+    /// 删除文件（软删除）
     /// </summary>
     [HttpDelete("{fileId}")]
     public async Task<ActionResult<ApiResponse>> DeleteFile(int fileId)
@@ -195,7 +186,6 @@ public class FilesController : ControllerBase
 
         if (success)
         {
-            // 通知同账号其他客户端
             await _hubContext.Clients.Group($"user_{userId}")
                 .SendAsync("ReceiveFileUpdate", new FileSyncMessage
                 {
@@ -226,7 +216,6 @@ public class FilesController : ControllerBase
 
         if (result != null)
         {
-            // 通知同账号其他客户端
             await _hubContext.Clients.Group($"user_{userId}")
                 .SendAsync("ReceiveFileUpdate", new FileSyncMessage
                 {
@@ -241,6 +230,45 @@ public class FilesController : ControllerBase
         return NotFound(ApiResponse<FileItemDto>.Fail("文件不存在"));
     }
 
+    private async Task NotifyFileUpdateAsync(int userId, string action, FileItemDto file)
+    {
+        await _hubContext.Clients.Group($"user_{userId}")
+            .SendAsync("ReceiveFileUpdate", new FileSyncMessage
+            {
+                Action = action,
+                File = file
+            });
+    }
+
+    private async Task<System.Security.Claims.ClaimsPrincipal?> ValidateTokenAsync(string token)
+    {
+        try
+        {
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var key = System.Text.Encoding.ASCII.GetBytes(
+                _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key未配置"));
+
+            var validationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = _configuration["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _configuration["Jwt:Audience"],
+                ValidateLifetime = false,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
+            return await Task.FromResult(principal);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private int? GetUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -248,4 +276,13 @@ public class FilesController : ControllerBase
             return userId;
         return null;
     }
+}
+
+/// <summary>
+/// 秒传请求
+/// </summary>
+public class InstantUploadRequest
+{
+    public required string FileName { get; set; }
+    public required string Hash { get; set; }
 }

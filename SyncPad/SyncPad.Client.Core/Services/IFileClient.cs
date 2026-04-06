@@ -15,9 +15,19 @@ public interface IFileClient
     Task<bool> FileExistsAsync(string fileName);
 
     /// <summary>
-    /// 上传文件
+    /// 检查 hash 是否已存在
     /// </summary>
-    Task<FileUploadResponse> UploadFileAsync(string fileName, Stream stream, string? mimeType, bool overwrite = false);
+    Task<ApiResponse<CheckHashResult>> CheckHashAsync(string hash);
+
+    /// <summary>
+    /// 上传文件（携带 hash）
+    /// </summary>
+    Task<FileUploadResponse> UploadFileAsync(string fileName, Stream stream, string? mimeType, string hash, bool overwrite = false);
+
+    /// <summary>
+    /// 秒传：通过 hash 激活已有文件
+    /// </summary>
+    Task<FileUploadResponse> InstantUploadAsync(string fileName, string hash);
 
     /// <summary>
     /// 获取文件下载 URL
@@ -37,9 +47,5 @@ public interface IFileClient
     /// <summary>
     /// 下载文件到缓存（支持进度回调）
     /// </summary>
-    /// <param name="fileId">文件 ID</param>
-    /// <param name="fileName">文件名</param>
-    /// <param name="cachePath">缓存路径</param>
-    /// <param name="progressCallback">进度回调 (downloaded, total)</param>
     Task<bool> DownloadFileToCacheAsync(int fileId, string fileName, string cachePath, Action<long, long>? progressCallback = null);
 }

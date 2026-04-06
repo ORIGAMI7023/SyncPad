@@ -42,6 +42,7 @@ public class SelectableFileItem : BaseViewModel
     public int Id => File.Id;
     public string FileName => File.FileName;
     public long FileSize => File.FileSize;
+    public string Hash => File.Hash;
     public string? MimeType => File.MimeType;
     public DateTime UploadedAt => File.UploadedAt;
     public DateTime ExpiresAt => File.ExpiresAt;

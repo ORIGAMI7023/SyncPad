@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+using System.IO.Hashing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using SyncPad.Server.Data;
@@ -12,7 +12,7 @@ public class FileService : IFileService
     private readonly SyncPadDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly string _storagePath;
-    private readonly TimeSpan _defaultTtl = TimeSpan.FromHours(24);
+    private readonly TimeSpan _defaultTtl = TimeSpan.FromDays(7);
 
     public FileService(SyncPadDbContext context, IConfiguration configuration)
     {
@@ -20,20 +20,21 @@ public class FileService : IFileService
         _configuration = configuration;
         _storagePath = configuration["FileStorage:Path"] ?? "data/files";
 
-        // 确保存储目录存在
         Directory.CreateDirectory(_storagePath);
     }
 
     public async Task<List<FileItemDto>> GetFilesAsync(int userId)
     {
+        var now = DateTime.UtcNow;
         return await _context.FileItems
-            .Where(f => f.UserId == userId && !f.IsDeleted)
+            .Where(f => f.UserId == userId && f.Status == "active" && f.ExpiresAt > now)
             .OrderBy(f => f.UploadedAt).ThenBy(f => f.Id)
             .Select(f => new FileItemDto
             {
                 Id = f.Id,
                 FileName = f.FileName,
                 FileSize = f.FileSize,
+                Hash = f.Hash,
                 MimeType = f.MimeType,
                 UploadedAt = f.UploadedAt,
                 ExpiresAt = f.ExpiresAt
@@ -41,99 +42,62 @@ public class FileService : IFileService
             .ToListAsync();
     }
 
-    public async Task<bool> FileExistsAsync(int userId, string fileName)
+    public async Task<CheckHashResult> CheckHashAsync(string hash)
     {
-        return await _context.FileItems
-            .AnyAsync(f => f.UserId == userId && f.FileName == fileName && !f.IsDeleted);
+        var fileItem = await _context.FileItems
+            .FirstOrDefaultAsync(f => f.Hash == hash);
+
+        if (fileItem == null)
+        {
+            return new CheckHashResult { Exists = false, Status = null };
+        }
+
+        return new CheckHashResult { Exists = true, Status = fileItem.Status };
     }
 
     public async Task<FileUploadResponse> UploadFileAsync(
-        int userId, string fileName, Stream stream, string? mimeType, bool overwrite = false)
+        int userId, string fileName, Stream stream, string? mimeType, string hash)
     {
-        // 检查同名文件
-        var existingFile = await _context.FileItems
-            .FirstOrDefaultAsync(f => f.UserId == userId && f.FileName == fileName && !f.IsDeleted);
+        // 计算 XXHash64 验证
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var fileBytes = ms.ToArray();
+        var computedHash = ComputeXxHash64(fileBytes);
 
-        if (existingFile != null && !overwrite)
+        if (computedHash != hash)
         {
             return new FileUploadResponse
             {
                 Success = false,
-                ErrorMessage = "FILE_EXISTS" // 客户端据此弹窗确认
+                ErrorMessage = "文件哈希校验失败"
             };
         }
 
-        // 计算 hash 并保存文件
-        using var ms = new MemoryStream();
-        await stream.CopyToAsync(ms);
-        var fileBytes = ms.ToArray();
-        var hash = ComputeSha256Hash(fileBytes);
         var fileSize = fileBytes.Length;
 
-        // 检查内容是否已存在（包括已删除文件的内容，实现秒传）
-        var fileContent = await _context.FileContents
-            .FirstOrDefaultAsync(fc => fc.ContentHash == hash);
-
-        if (fileContent == null)
+        // 检查是否已有同 hash 记录
+        var existingItem = await _context.FileItems.FirstOrDefaultAsync(f => f.Hash == hash);
+        if (existingItem != null)
         {
-            // 写入物理文件
-            var filePath = GetFilePath(hash);
+            if (existingItem.Status == "cached")
+            {
+                // 激活已有记录
+                return await ActivateExistingAsync(userId, fileName, existingItem, mimeType, fileSize);
+            }
+            // status=active，同 hash 已存在
+            return new FileUploadResponse
+            {
+                Success = false,
+                ErrorMessage = "FILE_EXISTS"
+            };
+        }
+
+        // 写入物理文件
+        var filePath = GetFilePath(hash);
+        if (!File.Exists(filePath))
+        {
             Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             await File.WriteAllBytesAsync(filePath, fileBytes);
-
-            // 创建 FileContent 记录
-            fileContent = new FileContent
-            {
-                ContentHash = hash,
-                ReferenceCount = 0,
-                FileSize = fileSize,
-                CreatedAt = DateTime.UtcNow,
-                LastAccessedAt = DateTime.UtcNow
-            };
-            _context.FileContents.Add(fileContent);
-
-            // 尝试保存 FileContent，处理并发冲突
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
-                when (ex.InnerException is Microsoft.Data.Sqlite.SqliteException sqliteEx
-                      && sqliteEx.SqliteErrorCode == 19) // UNIQUE constraint failed
-            {
-                // 并发冲突：另一个请求已经插入了相同 hash 的记录
-                // 回滚并重新查询
-                _context.Entry(fileContent).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
-                fileContent = await _context.FileContents
-                    .FirstOrDefaultAsync(fc => fc.ContentHash == hash);
-
-                if (fileContent == null)
-                {
-                    // 仍然找不到，抛出原始异常
-                    throw;
-                }
-            }
-        }
-        else
-        {
-            // 复用已有内容（秒传），验证物理文件存在
-            var filePath = GetFilePath(hash);
-            if (!File.Exists(filePath))
-            {
-                // 物理文件丢失，重新写入
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                await File.WriteAllBytesAsync(filePath, fileBytes);
-            }
-        }
-
-        // 更新引用计数
-        fileContent.ReferenceCount++;
-        fileContent.LastAccessedAt = DateTime.UtcNow;
-
-        // 如果覆盖，先逻辑删除旧文件
-        if (existingFile != null && overwrite)
-        {
-            await DeleteFileInternalAsync(existingFile);
         }
 
         // 创建 FileItem 记录
@@ -143,15 +107,36 @@ public class FileService : IFileService
             UserId = userId,
             FileName = fileName,
             FileSize = fileSize,
-            ContentHash = hash,
+            Hash = hash,
             MimeType = mimeType,
             UploadedAt = now,
             ExpiresAt = now.Add(_defaultTtl),
-            IsDeleted = false
+            Status = "active"
         };
 
         _context.FileItems.Add(fileItem);
-        await _context.SaveChangesAsync();
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+            when (ex.InnerException is Microsoft.Data.Sqlite.SqliteException sqliteEx
+                  && sqliteEx.SqliteErrorCode == 19) // UNIQUE constraint failed
+        {
+            // 并发冲突：另一请求已插入同 hash
+            _context.Entry(fileItem).State = EntityState.Detached;
+            var concurrent = await _context.FileItems.FirstOrDefaultAsync(f => f.Hash == hash);
+            if (concurrent != null && concurrent.Status == "cached")
+            {
+                return await ActivateExistingAsync(userId, fileName, concurrent, mimeType, fileSize);
+            }
+            return new FileUploadResponse
+            {
+                Success = false,
+                ErrorMessage = "FILE_EXISTS"
+            };
+        }
 
         return new FileUploadResponse
         {
@@ -161,6 +146,7 @@ public class FileService : IFileService
                 Id = fileItem.Id,
                 FileName = fileItem.FileName,
                 FileSize = fileItem.FileSize,
+                Hash = fileItem.Hash,
                 MimeType = fileItem.MimeType,
                 UploadedAt = fileItem.UploadedAt,
                 ExpiresAt = fileItem.ExpiresAt
@@ -168,26 +154,73 @@ public class FileService : IFileService
         };
     }
 
+    public async Task<FileUploadResponse> InstantUploadAsync(int userId, string fileName, string hash)
+    {
+        var existingItem = await _context.FileItems.FirstOrDefaultAsync(f => f.Hash == hash);
+        if (existingItem == null)
+        {
+            return new FileUploadResponse
+            {
+                Success = false,
+                ErrorMessage = "HASH_NOT_FOUND"
+            };
+        }
+
+        if (existingItem.Status == "cached")
+        {
+            return await ActivateExistingAsync(userId, fileName, existingItem, null, existingItem.FileSize);
+        }
+
+        // status=active
+        return new FileUploadResponse
+        {
+            Success = false,
+            ErrorMessage = "FILE_EXISTS"
+        };
+    }
+
+    private async Task<FileUploadResponse> ActivateExistingAsync(
+        int userId, string fileName, FileItem existingItem, string? mimeType, long fileSize)
+    {
+        var now = DateTime.UtcNow;
+        existingItem.UserId = userId;
+        existingItem.FileName = fileName;
+        existingItem.FileSize = fileSize;
+        existingItem.MimeType = mimeType;
+        existingItem.UploadedAt = now;
+        existingItem.ExpiresAt = now.Add(_defaultTtl);
+        existingItem.Status = "active";
+
+        await _context.SaveChangesAsync();
+
+        return new FileUploadResponse
+        {
+            Success = true,
+            File = new FileItemDto
+            {
+                Id = existingItem.Id,
+                FileName = existingItem.FileName,
+                FileSize = existingItem.FileSize,
+                Hash = existingItem.Hash,
+                MimeType = existingItem.MimeType,
+                UploadedAt = existingItem.UploadedAt,
+                ExpiresAt = existingItem.ExpiresAt
+            }
+        };
+    }
+
     public async Task<(Stream? Stream, string? MimeType, string? FileName, long FileSize)> DownloadFileAsync(int userId, int fileId)
     {
+        var now = DateTime.UtcNow;
         var fileItem = await _context.FileItems
-            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && f.Status == "active" && f.ExpiresAt > now);
 
         if (fileItem == null)
             return (null, null, null, 0);
 
-        var filePath = GetFilePath(fileItem.ContentHash);
+        var filePath = GetFilePath(fileItem.Hash);
         if (!File.Exists(filePath))
             return (null, null, null, 0);
-
-        // 更新最后访问时间
-        var fileContent = await _context.FileContents
-            .FirstOrDefaultAsync(fc => fc.ContentHash == fileItem.ContentHash);
-        if (fileContent != null)
-        {
-            fileContent.LastAccessedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-        }
 
         var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         return (stream, fileItem.MimeType, fileItem.FileName, fileItem.FileSize);
@@ -196,12 +229,12 @@ public class FileService : IFileService
     public async Task<bool> DeleteFileAsync(int userId, int fileId)
     {
         var fileItem = await _context.FileItems
-            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && f.Status == "active");
 
         if (fileItem == null)
             return false;
 
-        await DeleteFileInternalAsync(fileItem);
+        fileItem.Status = "cached";
         await _context.SaveChangesAsync();
         return true;
     }
@@ -209,12 +242,11 @@ public class FileService : IFileService
     public async Task<FileItemDto?> RenameFileAsync(int userId, int fileId, string newFileName)
     {
         var fileItem = await _context.FileItems
-            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && f.Status == "active");
 
         if (fileItem == null)
             return null;
 
-        // 更新文件名
         fileItem.FileName = newFileName;
         await _context.SaveChangesAsync();
 
@@ -223,62 +255,49 @@ public class FileService : IFileService
             Id = fileItem.Id,
             FileName = fileItem.FileName,
             FileSize = fileItem.FileSize,
+            Hash = fileItem.Hash,
             MimeType = fileItem.MimeType,
             UploadedAt = fileItem.UploadedAt,
             ExpiresAt = fileItem.ExpiresAt
         };
     }
 
-    private async Task DeleteFileInternalAsync(FileItem fileItem)
-    {
-        fileItem.IsDeleted = true;
-        fileItem.DeletedAt = DateTime.UtcNow;
-
-        // 减少引用计数
-        var fileContent = await _context.FileContents
-            .FirstOrDefaultAsync(fc => fc.ContentHash == fileItem.ContentHash);
-
-        if (fileContent != null)
-        {
-            fileContent.ReferenceCount--;
-        }
-    }
-
     public async Task CleanupExpiredFilesAsync()
     {
         var now = DateTime.UtcNow;
 
-        // 清理过期的 FileItem（已过期或已删除超过 7 天，便于去重复用）
+        // 清理 status=cached 且已过期的记录
         var expiredItems = await _context.FileItems
-            .Where(f => f.ExpiresAt < now || (f.IsDeleted && f.DeletedAt < now.AddDays(-7)))
+            .Where(f => f.Status == "cached" && f.ExpiresAt < now)
             .ToListAsync();
 
         foreach (var item in expiredItems)
         {
-            var fileContent = await _context.FileContents
-                .FirstOrDefaultAsync(fc => fc.ContentHash == item.ContentHash);
+            // 检查是否有其他 active 记录引用同 hash
+            var hasActive = await _context.FileItems
+                .AnyAsync(f => f.Hash == item.Hash && f.Status == "active");
 
-            if (fileContent != null)
+            if (!hasActive)
             {
-                fileContent.ReferenceCount--;
+                // 没有活跃引用，删除磁盘文件
+                var filePath = GetFilePath(item.Hash);
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
             }
 
             _context.FileItems.Remove(item);
         }
 
-        // 清理引用计数为 0 且超过 TTL 的物理文件（保留 7 天）
-        var orphanContents = await _context.FileContents
-            .Where(fc => fc.ReferenceCount <= 0 && fc.LastAccessedAt < now.AddDays(-7))
+        // 清理 status=active 但已过期的记录（也改为 cached 再清理）
+        var activeExpired = await _context.FileItems
+            .Where(f => f.Status == "active" && f.ExpiresAt < now)
             .ToListAsync();
 
-        foreach (var content in orphanContents)
+        foreach (var item in activeExpired)
         {
-            var filePath = GetFilePath(content.ContentHash);
-            if (File.Exists(filePath))
-            {
-                File.Delete(filePath);
-            }
-            _context.FileContents.Remove(content);
+            item.Status = "cached";
         }
 
         await _context.SaveChangesAsync();
@@ -286,15 +305,12 @@ public class FileService : IFileService
 
     private string GetFilePath(string hash)
     {
-        var dir1 = hash[..2];
-        var dir2 = hash[2..4];
-        return Path.Combine(_storagePath, dir1, dir2, $"{hash}.bin");
+        return Path.Combine(_storagePath, $"{hash}.dat");
     }
 
-    private static string ComputeSha256Hash(byte[] data)
+    private static string ComputeXxHash64(byte[] data)
     {
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(data);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
+        var hash = XxHash64.HashToUInt64(data);
+        return hash.ToString("x16");
     }
 }

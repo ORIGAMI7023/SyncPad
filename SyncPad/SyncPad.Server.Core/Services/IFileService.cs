@@ -5,25 +5,24 @@ namespace SyncPad.Server.Core.Services;
 public interface IFileService
 {
     /// <summary>
-    /// 获取用户文件列表（不含已删除）
+    /// 获取用户文件列表（status=active 且未过期）
     /// </summary>
     Task<List<FileItemDto>> GetFilesAsync(int userId);
 
     /// <summary>
-    /// 检查是否存在同名文件
+    /// 检查 hash 是否已存在
     /// </summary>
-    Task<bool> FileExistsAsync(int userId, string fileName);
+    Task<CheckHashResult> CheckHashAsync(string hash);
 
     /// <summary>
-    /// 上传文件
+    /// 上传文件（收到文件体后调用）
     /// </summary>
-    /// <param name="userId">用户 ID</param>
-    /// <param name="fileName">原始文件名</param>
-    /// <param name="stream">文件流</param>
-    /// <param name="mimeType">MIME 类型</param>
-    /// <param name="overwrite">是否覆盖同名文件</param>
-    /// <returns>上传结果</returns>
-    Task<FileUploadResponse> UploadFileAsync(int userId, string fileName, Stream stream, string? mimeType, bool overwrite = false);
+    Task<FileUploadResponse> UploadFileAsync(int userId, string fileName, Stream stream, string? mimeType, string hash);
+
+    /// <summary>
+    /// 秒传：激活已 cached 的文件
+    /// </summary>
+    Task<FileUploadResponse> InstantUploadAsync(int userId, string fileName, string hash);
 
     /// <summary>
     /// 获取文件下载流
@@ -31,7 +30,7 @@ public interface IFileService
     Task<(Stream? Stream, string? MimeType, string? FileName, long FileSize)> DownloadFileAsync(int userId, int fileId);
 
     /// <summary>
-    /// 删除文件（逻辑删除）
+    /// 删除文件（软删除，status 改为 cached）
     /// </summary>
     Task<bool> DeleteFileAsync(int userId, int fileId);
 

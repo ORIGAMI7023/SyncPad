@@ -165,14 +165,37 @@ class PadViewModel: ObservableObject {
             let fileName = url.lastPathComponent
             let mimeType = getMimeType(for: url)
 
-            let response = try await fileClient.uploadFile(
-                fileName: fileName,
-                data: data,
-                mimeType: mimeType
-            )
+            // 计算 XXHash64
+            guard let hash = cacheManager.computeHash(url: url) else {
+                errorMessage = "无法计算文件哈希"
+                return
+            }
+
+            // 第一步：检查 hash
+            let checkResult = try await fileClient.checkHash(hash)
+
+            if checkResult.exists && checkResult.status == "active" {
+                // 文件已存在
+                errorMessage = "文件已存在"
+                return
+            }
+
+            var response: FileUploadResponse
+
+            if checkResult.exists && checkResult.status == "cached" {
+                // 秒传：激活已有文件
+                response = try await fileClient.instantUpload(fileName: fileName, hash: hash)
+            } else {
+                // 正常上传
+                response = try await fileClient.uploadFile(
+                    fileName: fileName,
+                    data: data,
+                    mimeType: mimeType,
+                    hash: hash
+                )
+            }
 
             if response.success, let file = response.file {
-                // SignalR 会通知更新，这里不需要手动添加
                 print("File uploaded: \(file.fileName)")
             } else {
                 errorMessage = response.errorMessage ?? "上传失败"
@@ -185,11 +208,36 @@ class PadViewModel: ObservableObject {
     /// 上传文件（从 Data）
     func uploadFile(fileName: String, data: Data, mimeType: String?) async {
         do {
-            let response = try await fileClient.uploadFile(
-                fileName: fileName,
-                data: data,
-                mimeType: mimeType
-            )
+            // 写入临时文件计算 hash
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+            try data.write(to: tempURL)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+
+            guard let hash = cacheManager.computeHash(url: tempURL) else {
+                errorMessage = "无法计算文件哈希"
+                return
+            }
+
+            // 第一步：检查 hash
+            let checkResult = try await fileClient.checkHash(hash)
+
+            if checkResult.exists && checkResult.status == "active" {
+                errorMessage = "文件已存在"
+                return
+            }
+
+            var response: FileUploadResponse
+
+            if checkResult.exists && checkResult.status == "cached" {
+                response = try await fileClient.instantUpload(fileName: fileName, hash: hash)
+            } else {
+                response = try await fileClient.uploadFile(
+                    fileName: fileName,
+                    data: data,
+                    mimeType: mimeType,
+                    hash: hash
+                )
+            }
 
             if !response.success {
                 errorMessage = response.errorMessage ?? "上传失败"
@@ -200,12 +248,23 @@ class PadViewModel: ObservableObject {
     }
 
     /// 删除文件
+    func deleteFile(_ file: FileItemDto) async {
+        do {
+            let success = try await fileClient.deleteFile(fileId: file.id)
+            if success {
+                // SignalR 会通知更新
+                cacheManager.deleteCache(fileName: file.fileName)
+            }
+        } catch {
+            errorMessage = "删除失败: \(error.localizedDescription)"
+        }
+    }
+
     /// 重命名文件
     func renameFile(_ file: FileItemDto, newName: String) async {
         do {
             let success = try await fileClient.renameFile(fileId: file.id, newName: newName)
             if success {
-                // 重新加载文件列表以获取最新数据
                 await refreshFiles()
             } else {
                 errorMessage = "重命名失败"
@@ -215,19 +274,7 @@ class PadViewModel: ObservableObject {
         }
     }
 
-    func deleteFile(_ file: FileItemDto) async {
-        do {
-            let success = try await fileClient.deleteFile(fileId: file.id)
-            if success {
-                // SignalR 会通知更新
-                cacheManager.deleteCache(fileId: file.id, fileName: file.fileName)
-            }
-        } catch {
-            errorMessage = "删除失败: \(error.localizedDescription)"
-        }
-    }
-
-    /// 下载文件到缓存
+    /// 下载文件到缓存，返回缓存 URL
     func downloadFile(_ file: FileItemDto) async -> URL? {
         do {
             return try await cacheManager.downloadToCache(file: file)
@@ -237,13 +284,36 @@ class PadViewModel: ObservableObject {
         }
     }
 
-    /// 获取文件缓存路径（如果已缓存）
-    func getCachedURL(_ file: FileItemDto) -> URL? {
-        let path = cacheManager.getCachePath(fileId: file.id, fileName: file.fileName)
-        if FileManager.default.fileExists(atPath: path.path) {
-            return path
+    /// 下载到缓存 + 复制到 Downloads 目录 + 打开访达定位
+    func downloadAndSaveToDownloads(file: FileItemDto) async -> URL? {
+        guard let cacheURL = await downloadFile(file) else { return nil }
+
+        #if os(macOS)
+        let downloadsDir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        let destURL = downloadsDir.appendingPathComponent(file.fileName)
+
+        // 处理同名文件
+        var finalURL = destURL
+        var counter = 1
+        while FileManager.default.fileExists(atPath: finalURL.path) {
+            let name = (file.fileName as NSString).deletingPathExtension
+            let ext = (file.fileName as NSString).pathExtension
+            let newName = ext.isEmpty ? "\(name) (\(counter))" : "\(name) (\(counter)).\(ext)"
+            finalURL = downloadsDir.appendingPathComponent(newName)
+            counter += 1
         }
-        return nil
+
+        do {
+            try FileManager.default.copyItem(at: cacheURL, to: finalURL)
+            NSWorkspace.shared.selectFile(finalURL.path, inFileViewerRootedAtPath: "")
+            return finalURL
+        } catch {
+            errorMessage = "下载失败: \(error.localizedDescription)"
+            return nil
+        }
+        #else
+        return cacheURL
+        #endif
     }
 
     // MARK: - Helpers

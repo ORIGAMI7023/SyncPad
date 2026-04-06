@@ -104,34 +104,7 @@ struct FileGridView: View {
             },
             onDownload: {
                 Task {
-                    if let cacheURL = await viewModel.downloadFile(file) {
-                        #if os(macOS)
-                        let downloadsDir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-                        let destURL = downloadsDir.appendingPathComponent(file.fileName)
-
-                        // 处理同名文件
-                        var finalURL = destURL
-                        var counter = 1
-                        while FileManager.default.fileExists(atPath: finalURL.path) {
-                            let name = (file.fileName as NSString).deletingPathExtension
-                            let ext = (file.fileName as NSString).pathExtension
-                            let newName = ext.isEmpty ? "\(name) (\(counter))" : "\(name) (\(counter)).\(ext)"
-                            finalURL = downloadsDir.appendingPathComponent(newName)
-                            counter += 1
-                        }
-
-                        do {
-                            try FileManager.default.copyItem(at: cacheURL, to: finalURL)
-                        } catch {
-                            let alert = NSAlert()
-                            alert.messageText = "下载失败"
-                            alert.informativeText = error.localizedDescription
-                            alert.alertStyle = .warning
-                            alert.addButton(withTitle: "确定")
-                            alert.runModal()
-                        }
-                        #endif
-                    }
+                    _ = await viewModel.downloadAndSaveToDownloads(file: file)
                 }
             },
             onDelete: {
@@ -146,25 +119,13 @@ struct FileGridView: View {
         )
     }
 
-    // MARK: - Open File
+    // MARK: - Open File (统一流程：下载到缓存 → 复制到 Downloads → 用默认应用打开)
 
     private func openFile(_ file: FileItemDto) async {
-        let cacheManager = FileCacheManager.shared
-        if cacheManager.isCached(fileId: file.id, fileName: file.fileName) {
-            let url = cacheManager.getCachePath(fileId: file.id, fileName: file.fileName)
-            #if os(macOS)
-            NSWorkspace.shared.open(url)
-            #endif
-        } else {
-            #if os(macOS)
-            let alert = NSAlert()
-            alert.messageText = "文件未下载"
-            alert.informativeText = "请先下载文件后再打开"
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "确定")
-            alert.runModal()
-            #endif
-        }
+        guard let finalURL = await viewModel.downloadAndSaveToDownloads(file: file) else { return }
+        #if os(macOS)
+        NSWorkspace.shared.open(finalURL)
+        #endif
     }
 
     // MARK: - Drop Handler
