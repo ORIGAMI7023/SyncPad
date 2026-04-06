@@ -206,6 +206,29 @@ public class FileService : IFileService
         return true;
     }
 
+    public async Task<FileItemDto?> RenameFileAsync(int userId, int fileId, string newFileName)
+    {
+        var fileItem = await _context.FileItems
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.UserId == userId && !f.IsDeleted);
+
+        if (fileItem == null)
+            return null;
+
+        // 更新文件名
+        fileItem.FileName = newFileName;
+        await _context.SaveChangesAsync();
+
+        return new FileItemDto
+        {
+            Id = fileItem.Id,
+            FileName = fileItem.FileName,
+            FileSize = fileItem.FileSize,
+            MimeType = fileItem.MimeType,
+            UploadedAt = fileItem.UploadedAt,
+            ExpiresAt = fileItem.ExpiresAt
+        };
+    }
+
     private async Task DeleteFileInternalAsync(FileItem fileItem)
     {
         fileItem.IsDeleted = true;

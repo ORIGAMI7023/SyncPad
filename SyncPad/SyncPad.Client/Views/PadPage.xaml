@@ -58,7 +58,9 @@
                         BackgroundColor="#6C757D"
                         TextColor="White"
                         CornerRadius="4"
-                        Padding="10,5"/>
+                        Padding="12,6"
+                        HeightRequest="32"
+                        VerticalOptions="Center"/>
 
                 <Button Grid.Column="2"
                         Text="登出"
@@ -66,7 +68,9 @@
                         BackgroundColor="#DC3545"
                         TextColor="White"
                         CornerRadius="4"
-                        Padding="10,5"/>
+                        Padding="12,6"
+                        HeightRequest="32"
+                        VerticalOptions="Center"/>
             </Grid>
 
             <!-- 文本编辑区域 -->
@@ -74,6 +78,8 @@
                     x:Name="MainEditor"
                     Text="{Binding Content, Mode=TwoWay}"
                     TextChanged="OnEditorTextChanged"
+                    Focused="OnEditorFocused"
+                    Unfocused="OnEditorUnfocused"
                     Placeholder="在这里输入文本..."
                     FontSize="16"
                     Margin="10">
@@ -182,85 +188,70 @@
                                 IsVisible="{Binding HasFiles}"
                                 x:Name="FileCollectionView">
                     <CollectionView.ItemsLayout>
-                        <GridItemsLayout Orientation="Vertical"
-                                        Span="4"
-                                        HorizontalItemSpacing="2"
-                                        VerticalItemSpacing="2"/>
+                        <LinearItemsLayout Orientation="Vertical"
+                                          ItemSpacing="2"/>
                     </CollectionView.ItemsLayout>
 
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <Frame Padding="6"
+                            <Frame Padding="10,8"
                                    CornerRadius="4"
                                    HasShadow="False"
                                    BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
-                                   Margin="1">
+                                   Margin="2,1">
                                 <Frame.BackgroundColor>
                                     <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                 </Frame.BackgroundColor>
-                                <!-- 右键菜单 -->
+
                                 <FlyoutBase.ContextFlyout>
                                     <MenuFlyout>
                                         <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" CommandParameter="{Binding .}"/>
+                                        <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" CommandParameter="{Binding .}"/>
                                         <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                     </MenuFlyout>
                                 </FlyoutBase.ContextFlyout>
 
-                                <Grid RowSpacing="2">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="48"/>
-                                        <RowDefinition Height="34"/>
-                                        <RowDefinition Height="16"/>
-                                        <RowDefinition Height="16"/>
-                                    </Grid.RowDefinitions>
+                                <Grid ColumnSpacing="10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
 
                                     <!-- 文件图标 -->
-                                    <Grid Grid.Row="0">
-                                        <!-- Windows 原生文件图标（优先显示） -->
-                                        <Image Source="{Binding NativeIcon}"
-                                               WidthRequest="48"
-                                               HeightRequest="48"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"
-                                               IsVisible="{Binding HasNativeIcon}"/>
+                                    <Image Grid.Column="0"
+                                           Source="{Binding NativeIcon}"
+                                           WidthRequest="32"
+                                           HeightRequest="32"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasNativeIcon}"/>
 
-                                        <!-- Emoji 文件图标（后备） -->
-                                        <Label Text="{Binding FileIcon}"
-                                               FontSize="32"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center"
-                                               IsVisible="{Binding HasNativeIcon, Converter={StaticResource InverseBoolConverter}}"/>
-                                    </Grid>
+                                    <Label Grid.Column="0"
+                                           Text="{Binding FileIcon}"
+                                           FontSize="24"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding HasNativeIcon, Converter={StaticResource InverseBoolConverter}}"/>
 
-                                    <!-- 文件名 -->
-                                    <Label Grid.Row="1"
-                                           Text="{Binding FileName}"
-                                           FontSize="12"
-                                           FontAttributes="Bold"
-                                           LineBreakMode="TailTruncation"
-                                           MaxLines="2"
-                                           HorizontalTextAlignment="Center"/>
+                                    <!-- 文件信息 -->
+                                    <StackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                        <Label Text="{Binding FileName}"
+                                               FontSize="13"
+                                               FontAttributes="Bold"
+                                               LineBreakMode="TailTruncation"/>
 
-                                    <!-- 文件大小和类型 -->
-                                    <Label Grid.Row="2"
-                                           FontSize="10"
-                                           TextColor="Gray"
-                                           HorizontalTextAlignment="Center">
-                                        <Label.FormattedText>
-                                            <FormattedString>
-                                                <Span Text="{Binding FileSizeText}"/>
-                                                <Span Text=" · "/>
-                                                <Span Text="{Binding FileType}"/>
-                                            </FormattedString>
-                                        </Label.FormattedText>
-                                    </Label>
-
-                                    <!-- 上传时间 -->
-                                    <Label Grid.Row="3"
-                                           Text="{Binding UploadedAtText}"
-                                           FontSize="9"
-                                           TextColor="LightGray"
-                                           HorizontalTextAlignment="Center"/>
+                                        <Label FontSize="11" TextColor="Gray">
+                                            <Label.FormattedText>
+                                                <FormattedString>
+                                                    <Span Text="{Binding FileSizeText}"/>
+                                                    <Span Text=" · "/>
+                                                    <Span Text="{Binding FileType}"/>
+                                                    <Span Text=" · "/>
+                                                    <Span Text="{Binding UploadedAtText}"/>
+                                                </FormattedString>
+                                            </Label.FormattedText>
+                                        </Label>
+                                    </StackLayout>
 
                                     <!-- 点击手势 -->
                                     <Grid.GestureRecognizers>
@@ -409,7 +400,9 @@
                                 BackgroundColor="#6C757D"
                                 TextColor="White"
                                 CornerRadius="4"
-                                Padding="10,5"/>
+                                Padding="12,6"
+                                HeightRequest="32"
+                                VerticalOptions="Center"/>
 
                         <Button Grid.Column="2"
                                 Text="登出"
@@ -417,13 +410,17 @@
                                 BackgroundColor="#DC3545"
                                 TextColor="White"
                                 CornerRadius="4"
-                                Padding="10,5"/>
+                                Padding="12,6"
+                                HeightRequest="32"
+                                VerticalOptions="Center"/>
                     </Grid>
 
                     <Editor Grid.Row="1"
                             x:Name="MobileEditor"
                             Text="{Binding Content, Mode=TwoWay}"
                             TextChanged="OnEditorTextChanged"
+                            Focused="OnEditorFocused"
+                            Unfocused="OnEditorUnfocused"
                             Placeholder="在这里输入文本..."
                             FontSize="16"
                             Margin="10">
@@ -510,76 +507,61 @@
                                           SelectionMode="None"
                                           IsVisible="{Binding HasFiles}">
                                 <CollectionView.ItemsLayout>
-                                    <GridItemsLayout Orientation="Vertical"
-                                                   Span="2"
-                                                   HorizontalItemSpacing="2"
-                                                   VerticalItemSpacing="2"/>
+                                    <LinearItemsLayout Orientation="Vertical"
+                                                      ItemSpacing="2"/>
                                 </CollectionView.ItemsLayout>
 
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- 文件项容器 -->
-                                        <Frame Padding="6"
+                                        <Frame Padding="10,8"
                                                CornerRadius="4"
                                                HasShadow="False"
                                                BorderColor="{Binding IsSelected, Converter={StaticResource BoolToBorderColorConverter}}"
-                                               Margin="1">
+                                               Margin="2,1">
                                             <Frame.BackgroundColor>
                                                 <AppThemeBinding Light="Transparent" Dark="Transparent" />
                                             </Frame.BackgroundColor>
-                                            <!-- 右键菜单（移动端可能不显示，但保持一致） -->
+
                                             <FlyoutBase.ContextFlyout>
                                                 <MenuFlyout>
                                                     <MenuFlyoutItem Text="打开" Clicked="OnContextMenuOpen" CommandParameter="{Binding .}"/>
+                                                    <MenuFlyoutItem Text="下载" Clicked="OnContextMenuDownload" CommandParameter="{Binding .}"/>
+                                                    <MenuFlyoutItem Text="重命名" Clicked="OnContextMenuRename" CommandParameter="{Binding .}"/>
                                                     <MenuFlyoutItem Text="删除" Clicked="OnContextMenuDelete" CommandParameter="{Binding .}"/>
                                                 </MenuFlyout>
                                             </FlyoutBase.ContextFlyout>
 
-                                            <Grid RowSpacing="2">
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="48"/>
-                                                    <RowDefinition Height="34"/>
-                                                    <RowDefinition Height="16"/>
-                                                    <RowDefinition Height="16"/>
-                                                </Grid.RowDefinitions>
+                                            <Grid ColumnSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
 
                                                 <!-- 文件图标 -->
-                                                <Grid Grid.Row="0">
-                                                    <Label Text="{Binding FileIcon}"
-                                                           FontSize="32"
-                                                           HorizontalOptions="Center"
-                                                           VerticalOptions="Center"/>
-                                                </Grid>
+                                                <Label Grid.Column="0"
+                                                       Text="{Binding FileIcon}"
+                                                       FontSize="24"
+                                                       VerticalOptions="Center"/>
 
-                                                <!-- 文件名 -->
-                                                <Label Grid.Row="1"
-                                                       Text="{Binding FileName}"
-                                                       FontSize="12"
-                                                       FontAttributes="Bold"
-                                                       LineBreakMode="TailTruncation"
-                                                       MaxLines="2"
-                                                       HorizontalTextAlignment="Center"/>
+                                                <!-- 文件信息 -->
+                                                <StackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                                    <Label Text="{Binding FileName}"
+                                                           FontSize="13"
+                                                           FontAttributes="Bold"
+                                                           LineBreakMode="TailTruncation"/>
 
-                                                <!-- 文件大小和类型 -->
-                                                <Label Grid.Row="2"
-                                                       FontSize="10"
-                                                       TextColor="Gray"
-                                                       HorizontalTextAlignment="Center">
-                                                    <Label.FormattedText>
-                                                        <FormattedString>
-                                                            <Span Text="{Binding FileSizeText}"/>
-                                                            <Span Text=" · "/>
-                                                            <Span Text="{Binding FileType}"/>
-                                                        </FormattedString>
-                                                    </Label.FormattedText>
-                                                </Label>
-
-                                                <!-- 上传时间 -->
-                                                <Label Grid.Row="3"
-                                                       Text="{Binding UploadedAtText}"
-                                                       FontSize="9"
-                                                       TextColor="LightGray"
-                                                       HorizontalTextAlignment="Center"/>
+                                                    <Label FontSize="11" TextColor="Gray">
+                                                        <Label.FormattedText>
+                                                            <FormattedString>
+                                                                <Span Text="{Binding FileSizeText}"/>
+                                                                <Span Text=" · "/>
+                                                                <Span Text="{Binding FileType}"/>
+                                                                <Span Text=" · "/>
+                                                                <Span Text="{Binding UploadedAtText}"/>
+                                                            </FormattedString>
+                                                        </Label.FormattedText>
+                                                    </Label>
+                                                </StackLayout>
 
                                                 <!-- 点击手势 -->
                                                 <Grid.GestureRecognizers>

@@ -36,8 +36,9 @@ public class FileUploadResponse
 /// </summary>
 public class FileSyncMessage
 {
-    public required string Action { get; set; } // "added", "deleted"
+    public required string Action { get; set; } // "added", "deleted", "renamed"
     public FileItemDto? File { get; set; }
-    public int? FileId { get; set; } // 删除时使用
+    public int? FileId { get; set; } // 删除和重命名时使用
+    public string? NewFileName { get; set; } // 重命名时使用
 }
 

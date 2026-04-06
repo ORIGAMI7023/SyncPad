@@ -36,6 +36,11 @@ public interface IFileService
     Task<bool> DeleteFileAsync(int userId, int fileId);
 
     /// <summary>
+    /// 重命名文件
+    /// </summary>
+    Task<FileItemDto?> RenameFileAsync(int userId, int fileId, string newFileName);
+
+    /// <summary>
     /// 清理过期文件（后台任务调用）
     /// </summary>
     Task CleanupExpiredFilesAsync();

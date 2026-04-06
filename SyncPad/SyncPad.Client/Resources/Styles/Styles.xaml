@@ -42,7 +42,17 @@
                             <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
                         </VisualState.Setters>
                     </VisualState>
-                    <VisualState x:Name="PointerOver" />
+                    <VisualState x:Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#0056b3, Dark=#003d7a}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#004085, Dark=#002a52}" />
+                            <Setter Property="Scale" Value="0.98" />
+                        </VisualState.Setters>
+                    </VisualState>
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>

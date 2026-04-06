@@ -133,6 +133,36 @@ class FileClient: ObservableObject {
         }
     }
 
+    // MARK: - Rename
+
+    /// 重命名文件
+    func renameFile(fileId: Int, newName: String) async throws -> Bool {
+        let url = URL(string: "\(baseURL)/api/files/rename")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        addAuthHeader(&request)
+
+        let body = ["fileId": fileId, "newName": newName]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ApiError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 200 {
+            let decoder = createDecoder()
+            let apiResponse = try decoder.decode(SimpleApiResponse.self, from: data)
+            return apiResponse.success
+        } else if httpResponse.statusCode == 401 {
+            throw ApiError.unauthorized
+        } else {
+            return false
+        }
+    }
+
     // MARK: - Delete
 
     /// 删除文件
