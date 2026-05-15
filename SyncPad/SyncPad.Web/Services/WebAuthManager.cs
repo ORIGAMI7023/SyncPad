@@ -15,7 +15,7 @@ public class WebAuthManager : IAuthManager
 #if DEBUG
     private readonly string _baseUrl = "https://localhost:7167";
 #else
-    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
+    private readonly string _baseUrl = "https://syncpad.origami7023.cn";
 #endif
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);

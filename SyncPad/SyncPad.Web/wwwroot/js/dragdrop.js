@@ -100,8 +100,21 @@ window.DragDropInterop = {
     // 初始化键盘快捷键支持
     initKeyboardShortcuts: function (dotNetRef) {
         document.addEventListener('keydown', (e) => {
-            // Ctrl+A 全选
-            if (e.ctrlKey && e.key === 'a') {
+            // 检查当前焦点是否在输入框中
+            const activeElement = document.activeElement;
+            const isInputElement = activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.isContentEditable
+            );
+
+            // 如果焦点在输入框中，不处理快捷键，让浏览器默认行为生效
+            if (isInputElement) {
+                return;
+            }
+
+            // Ctrl+A (Windows) 或 Cmd+A (Mac) 全选文件
+            if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
                 e.preventDefault();
                 dotNetRef.invokeMethodAsync('SelectAllFiles');
             }

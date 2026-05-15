@@ -18,7 +18,7 @@ class SignalRClient: NSObject, ObservableObject {
     private var webSocket: URLSessionWebSocketTask?
     private var session: URLSession?
     private var token: String?
-    private let hubURL = "wss://syncpad.origami7023.net.cn/hubs/text"
+    private let hubURL = "wss://syncpad.origami7023.cn/hubs/text"
 
     private var pingTimer: Timer?
     private var handshakeTimer: Timer?

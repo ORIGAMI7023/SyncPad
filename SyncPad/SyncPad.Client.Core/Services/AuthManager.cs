@@ -11,7 +11,7 @@ public class AuthManager : IAuthManager
     private readonly ITokenStorage _tokenStorage;
 
     // 服务器地址（Mac Catalyst 始终使用生产环境）
-    private readonly string _baseUrl = "https://syncpad.origami7023.net.cn";
+    private readonly string _baseUrl = "https://syncpad.origami7023.cn";
 
     public bool IsLoggedIn => !string.IsNullOrEmpty(Token);
     public string? Username { get; private set; }

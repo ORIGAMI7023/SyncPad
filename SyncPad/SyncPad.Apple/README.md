@@ -84,7 +84,7 @@ SyncPad.Apple/
 
 ## 服务器连接
 
-连接到: `https://syncpad.origami7023.net.cn`
+连接到: `https://syncpad.origami7023.cn`
 
 - REST API: `/api/auth/login`, `/api/text`, `/api/files`
 - WebSocket (SignalR): `/hubs/text`

@@ -6,7 +6,7 @@ import Foundation
 class FileClient: ObservableObject {
     static let shared = FileClient()
 
-    private let baseURL = "https://syncpad.origami7023.net.cn"
+    private let baseURL = "https://syncpad.origami7023.cn"
     private let apiClient = ApiClient.shared
 
     private init() {}

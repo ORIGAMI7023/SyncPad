@@ -6,7 +6,7 @@ import Foundation
 class ApiClient: ObservableObject {
     static let shared = ApiClient()
 
-    private let baseURL = "https://syncpad.origami7023.net.cn"
+    private let baseURL = "https://syncpad.origami7023.cn"
     private var token: String?
 
     private let decoder: JSONDecoder = {
