@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using SyncPad.Server.Core.Services;
 using SyncPad.Server.Data;
 using SyncPad.Server.Hubs;
+using SyncPad.Server.Core.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,6 +106,18 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITextSyncService, TextSyncService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IEncryptionService, EncryptionService>();
+builder.Services.AddScoped<IDeviceSyncService, DeviceSyncService>();
+
+// 注册雪花ID生成器（单例）
+builder.Services.AddSingleton<SnowflakeIdGenerator>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var machineId = config.GetValue<long>("Encryption:SnowflakeMachineId", 1);
+    return new SnowflakeIdGenerator(machineId);
+});
+
 builder.Services.AddHostedService<SyncPad.Server.Services.FileCleanupService>();
 builder.Services.AddHostedService<SyncPad.Server.Services.TextCleanupService>();
 
@@ -188,5 +201,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<TextHub>("/hubs/text").RequireCors("SignalR");
+app.MapHub<ChatHub>("/hubs/chat").RequireCors("SignalR");
 
 app.Run();

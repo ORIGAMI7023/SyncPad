@@ -51,4 +51,9 @@ public interface IAuthManager
     /// 获取 Hub URL
     /// </summary>
     string GetHubUrl();
+
+    /// <summary>
+    /// 获取聊天 Hub URL
+    /// </summary>
+    string GetChatHubUrl();
 }

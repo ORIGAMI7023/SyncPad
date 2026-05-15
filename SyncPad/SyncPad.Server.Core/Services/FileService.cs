@@ -58,7 +58,7 @@ public class FileService : IFileService
     public async Task<FileUploadResponse> UploadFileAsync(
         int userId, string fileName, Stream stream, string? mimeType, string hash)
     {
-        // 计算 XXHash64 验证
+        // 计算 XXHash64 验证（注意：对于加密文件，计算的是加密数据的哈希）
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms);
         var fileBytes = ms.ToArray();

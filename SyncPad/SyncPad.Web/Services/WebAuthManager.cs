@@ -98,4 +98,9 @@ public class WebAuthManager : IAuthManager
     {
         return $"{_baseUrl}/hubs/text";
     }
+
+    public string GetChatHubUrl()
+    {
+        return $"{_baseUrl}/hubs/chat";
+    }
 }

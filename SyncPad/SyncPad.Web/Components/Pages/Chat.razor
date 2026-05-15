@@ -1,0 +1,347 @@
+@page "/chat"
+@using Microsoft.AspNetCore.Components.Web
+@using SyncPad.Client.Core.Services
+@using SyncPad.Shared.Models
+@using SyncPad.Web.Services
+@inject IAuthManager AuthManager
+@inject IChatHubClient ChatHubClient
+@inject E2EECryptoService CryptoService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>聊天 - SyncPad</PageTitle>
+
+<link href="./css/chat.css" rel="stylesheet" />
+
+<div class="chat-layout">
+    <!-- 顶部工具栏 -->
+    <div class="chat-toolbar">
+        <div class="user-info">
+            <span>用户: <strong>@AuthManager.Username</strong></span>
+            @if (ChatHubClient.IsConnected)
+            {
+                <span class="status-indicator connected">● 已连接</span>
+            }
+            else
+            {
+                <span class="status-indicator disconnected">● 未连接</span>
+            }
+        </div>
+        <div class="toolbar-actions">
+            <button class="btn-secondary" @onclick="LoadHistoricalMessages" disabled="@_isLoading">
+                @_isLoading ? "加载中..." : "加载历史消息"
+            </button>
+            <a class="btn-secondary" href="/pad">切换到面板</a>
+            <button class="btn-danger" @onclick="Logout">登出</button>
+        </div>
+    </div>
+
+    <!-- 消息列表区域 -->
+    <div class="messages-container" @ref="_messagesContainerRef">
+        @if (_isLoading && _messages.Count == 0)
+        {
+            <div class="loading-indicator">
+                <div class="spinner"></div>
+                <span>加载中...</span>
+            </div>
+        }
+        else if (_messages.Count == 0)
+        {
+            <div class="empty-state">
+                <p>暂无消息，开始聊天吧！</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var message in _messages)
+            {
+                <div class="message-bubble @(message.UserId == _currentUserId ? "message-own" : "message-other")">
+                    <div class="message-header">
+                        <span class="message-username">@message.Username</span>
+                        <span class="message-time">@message.CreatedAt.ToString("HH:mm:ss")</span>
+                    </div>
+
+                    @if (message.IsDeleted)
+                    {
+                        <div class="message-content deleted">
+                            消息已删除
+                        </div>
+                    }
+                    else if (message.Type == MessageType.Text)
+                    {
+                        <div class="message-content">
+                            @_decryptedMessages.GetValueOrDefault(message.Id, "解密中...")
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_hasMoreMessages)
+            {
+                <div class="load-more-container">
+                    <button class="btn-load-more" @onclick="LoadHistoricalMessages" disabled="@_isLoading">
+                        @_isLoading ? "加载中..." : "加载更多消息"
+                    </button>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- 输入区域 -->
+    <div class="input-area">
+        <!-- 文本输入框 -->
+        <div class="text-input-section-full">
+            <input type="text"
+                   @bind="@_inputText"
+                   @bind:event="oninput"
+                   @onkeypress="HandleKeyPress"
+                   placeholder="输入消息..."
+                   disabled="@(!ChatHubClient.IsConnected || _isSending)" />
+        </div>
+
+        <!-- 发送按钮 -->
+        <div class="send-section">
+            <button class="btn-send" @onclick="SendMessage" disabled="@(!ChatHubClient.IsConnected || _isSending || string.IsNullOrWhiteSpace(_inputText))">
+                @if (_isSending)
+                {
+                    <span>发送中...</span>
+                }
+                else
+                {
+                    <span>发送</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- 加密状态提示 -->
+    @if (!_isEncryptionReady)
+    {
+        <div class="encryption-warning">
+            <span>⚠️ 端到端加密未初始化</span>
+        </div>
+    }
+</div>
+
+@code {
+    private ElementReference _messagesContainerRef;
+    private string _inputText = string.Empty;
+    private bool _isLoading = false;
+    private bool _isSending = false;
+    private bool _isEncryptionReady = false;
+    private bool _hasMoreMessages = false;
+    private int? _currentUserId;
+    private long? _oldestLoadedMessageId;
+
+    // 存储消息和解密后的内容
+    private List<ChatMessageDto> _messages = new();
+    private Dictionary<long, string> _decryptedMessages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUserId = AuthManager.UserId;
+
+        // 初始化加密服务
+        await InitializeEncryption();
+
+        // 设置SignalR客户端回调
+        SetupSignalRCallbacks();
+
+        // 连接SignalR
+        try
+        {
+            await ChatHubClient.ConnectAsync(AuthManager.GetChatHubUrl(), AuthManager.Token ?? "");
+
+            // 请求初始消息
+            await LoadInitialMessages();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"连接失败: {ex.Message}");
+        }
+    }
+
+    private async Task InitializeEncryption()
+    {
+        try
+        {
+            await CryptoService.InitializeAsync();
+
+            // 从IndexedDB加载已保存的密钥
+            var sessionToken = AuthManager.Token ?? "";
+            if (!string.IsNullOrEmpty(sessionToken))
+            {
+                await CryptoService.LoadKeyFromIndexedDBAsync(sessionToken);
+                _isEncryptionReady = await CryptoService.IsKeyInitializedAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"加密初始化失败: {ex.Message}");
+            _isEncryptionReady = false;
+        }
+    }
+
+    private void SetupSignalRCallbacks()
+    {
+        ChatHubClient.OnReceiveMessage += async message =>
+        {
+            _messages.Add(message);
+            await DecryptAndCacheMessage(message);
+            await InvokeAsync(StateHasChanged);
+            ScrollToBottom();
+        };
+
+        ChatHubClient.OnReceiveMessages += async response =>
+        {
+            var newMessages = response.Messages.Where(m => !_messages.Any(existing => existing.Id == m.Id)).ToList();
+            _messages.AddRange(newMessages);
+            _oldestLoadedMessageId = response.OldestMessageId;
+            _hasMoreMessages = response.HasMore;
+
+            // 解密所有文本消息
+            foreach (var message in newMessages.Where(m => m.Type == MessageType.Text))
+            {
+                await DecryptAndCacheMessage(message);
+            }
+
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        };
+
+        ChatHubClient.OnMessageDeleted += messageId =>
+        {
+            var message = _messages.FirstOrDefault(m => m.Id == messageId);
+            if (message != null)
+            {
+                message.IsDeleted = true;
+                _decryptedMessages.Remove(messageId);
+                InvokeAsync(StateHasChanged);
+            }
+        };
+
+        ChatHubClient.ConnectionStateChanged += isConnected =>
+        {
+            InvokeAsync(StateHasChanged);
+        };
+    }
+
+    private async Task LoadInitialMessages()
+    {
+        _isLoading = true;
+        await ChatHubClient.RequestMessagesAsync(new GetMessagesRequest
+        {
+            BeforeId = null,
+            Count = 50
+        });
+    }
+
+    private async Task LoadHistoricalMessages()
+    {
+        if (_oldestLoadedMessageId.HasValue)
+        {
+            _isLoading = true;
+            await ChatHubClient.RequestMessagesAsync(new GetMessagesRequest
+            {
+                BeforeId = _oldestLoadedMessageId.Value,
+                Count = 50
+            });
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_inputText) || !_isEncryptionReady || !ChatHubClient.IsConnected)
+        {
+            return;
+        }
+
+        _isSending = true;
+
+        try
+        {
+            // 加密消息内容
+            var encryptionResult = await CryptoService.EncryptAsync(_inputText);
+
+            var request = new SendMessageRequest
+            {
+                Type = MessageType.Text,
+                EncryptedContent = $"{encryptionResult.EncryptedData}:{encryptionResult.IV}"
+            };
+
+            await ChatHubClient.SendMessageAsync(request);
+            _inputText = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"发送消息失败: {ex.Message}");
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+
+    private async Task DecryptAndCacheMessage(ChatMessageDto message)
+    {
+        if (message.Type == MessageType.Text && !string.IsNullOrEmpty(message.EncryptedContent))
+        {
+            try
+            {
+                // 从EncryptedContent中提取加密数据和IV
+                // 格式为: "encryptedData:iv"
+                var parts = message.EncryptedContent.Split(':');
+                if (parts.Length == 2)
+                {
+                    var decryptedText = await CryptoService.DecryptAsync(parts[0], parts[1]);
+                    _decryptedMessages[message.Id] = decryptedText;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"解密消息失败: {ex.Message}");
+                _decryptedMessages[message.Id] = "解密失败";
+            }
+        }
+    }
+
+    private void HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            _ = SendMessage();
+        }
+    }
+
+    private void ScrollToBottom()
+    {
+        _ = JSRuntime.InvokeVoidAsync("eval", "setTimeout(() => { const container = document.querySelector('.messages-container'); if(container) container.scrollTop = container.scrollHeight; }, 100);");
+    }
+
+    private async Task Logout()
+    {
+        try
+        {
+            await CryptoService.ClearKeyFromIndexedDBAsync();
+        }
+        catch
+        {
+            // 忽略清理错误
+        }
+
+        await AuthManager.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        // 清理SignalR连接和事件订阅
+        ChatHubClient.ConnectionStateChanged -= null;
+        ChatHubClient.OnReceiveMessage -= null;
+        ChatHubClient.OnReceiveMessages -= null;
+        ChatHubClient.OnMessageDeleted -= null;
+
+        _ = ChatHubClient.DisconnectAsync();
+    }
+}
